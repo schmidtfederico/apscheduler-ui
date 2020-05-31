@@ -4,19 +4,19 @@ const event_aesthetics = {
         fill: '#597EFF',
         size: 10,
         border_color: '#2B3046',
-        border_size: 1
+        border_size: 2
     },
     job_executed: {
         fill: '#3EBF91',
         size: 10,
         border_color: '#2B3046',
-        border_size: 1
+        border_size: 2
     },
     job_error: {
         fill: '#FF6464',
         size: 10,
         border_color: '#2B3046',
-        border_size: 1
+        border_size: 2
     },
     job_running: {
         fill: '#597EFF',
@@ -153,7 +153,8 @@ class SchedulerPlot {
 
     jobs = {};
 
-    constructor(time_interval, target_plot_width=1300, min_intervals=12, interval_size_px=60) {
+    constructor(scheduler, time_interval, target_plot_width=1300, min_intervals=12, interval_size_px=60) {
+        this.scheduler = scheduler;
         this.time_interval = time_interval;
         this.interval_size_px = interval_size_px;
         this.target_plot_width = target_plot_width;
@@ -176,34 +177,34 @@ class SchedulerPlot {
     }
 
     n_jobs() {
-        return Object.keys(this.jobs).length;
+        return Object.keys(this.scheduler.jobs).length;
     }
 
     min_ts() {
-        var ts = null;
-        for(var job_id in this.jobs) {
-            if(ts === null || ts > this.jobs[job_id].min_ts)
-                ts = this.jobs[job_id].min_ts;
+        let ts = null;
+        for(let job_id in this.scheduler.jobs) {
+            if(ts === null || ts > this.scheduler.jobs[job_id].min_ts())
+                ts = this.scheduler.jobs[job_id].min_ts();
         }
 
         return ts;
     }
 
     max_ts() {
-        var ts = null;
-        for(var job_id in this.jobs) {
-            if(ts === null || ts < this.jobs[job_id].max_ts)
-                ts = this.jobs[job_id].max_ts;
+        let ts = null;
+        for(let job_id in this.scheduler.jobs) {
+            if(ts === null || ts < this.scheduler.jobs[job_id].max_ts())
+                ts = this.scheduler.jobs[job_id].max_ts();
         }
 
         return ts;
     }
 
     now_ts() {
-        var ts = null;
-        for(var job_id in this.jobs) {
-            if(ts === null || ts < this.jobs[job_id].last_event_ts)
-                ts = this.jobs[job_id].last_event_ts;
+        let ts = null;
+        for(let job_id in this.scheduler.jobs) {
+            if(ts === null || ts < this.scheduler.jobs[job_id].stats.last_event_ts)
+                ts = this.scheduler.jobs[job_id].stats.last_event_ts;
         }
 
         return ts;
@@ -219,106 +220,14 @@ class SchedulerPlot {
 
     x_min() {
         var truncated_now = Math.floor(this.now_ts() / this.time_interval) * this.time_interval;
-        var n_intervals = Math.round(this.n_intervals() / 2, 0);
+        var n_intervals = Math.round(this.n_intervals() / 2);
         return truncated_now - n_intervals * this.time_interval;
     }
 
     x_max() {
         var truncated_now = Math.floor(this.now_ts() / this.time_interval) * this.time_interval;
-        var n_intervals = Math.round(this.n_intervals() / 2, 0);
+        var n_intervals = Math.round(this.n_intervals() / 2);
         return truncated_now + n_intervals * this.time_interval;
-    }
-
-    add_job(job_id, job_name) {
-        if(!this.jobs.hasOwnProperty(job_id)) {
-            this.jobs[job_id] = {
-                'y': 66 + this.n_jobs() * 86,
-                'name': job_name,
-                'min_ts': null,
-                'max_ts': null,
-                'last_event_ts': null,
-                'current_status': null
-            };
-        }
-    }
-
-    update_job(job_id, event_ts, event_name=null) {
-        let job = this.jobs[job_id];
-        if(job.max_ts === null || event_ts > job.max_ts) {
-            job.max_ts = event_ts;
-        }
-
-        if(job.min_ts === null || event_ts < job.min_ts) {
-            job.min_ts = event_ts;
-        }
-
-        if(event_name) {
-            if(job.last_event_ts === null || job.last_event_ts < event_ts) {
-                job.last_event_ts = event_ts;
-                job.current_status = event_name;
-            }
-        }
-
-        return job;
-    }
-
-    add_scheduled_event(job_id, event_ts) {
-        var job = this.update_job(job_id, event_ts);
-
-        this.add_point(
-            'point_events',
-            job.y,
-            + event_ts,
-            event_aesthetics['job_scheduled'].fill,
-            event_aesthetics['job_scheduled'].border_color,
-            'circle',
-            event_aesthetics['job_scheduled'].size,
-            event_aesthetics['job_scheduled'].border_size
-        );
-    }
-
-    add_job_event(job_id, event_ts, event_name, event_scheduled_ts) {
-        let point_group = null;
-        let event_group = 'point_events';
-
-        if(event_name !== 'job_missed' && event_name !== 'job_max_instances') {
-            event_group = 'job_events';
-            point_group = job_id + ':' + event_scheduled_ts;
-        }
-
-        console.log(event_name, point_group, event_group);
-
-        let job = this.update_job(job_id, event_ts, event_name);
-
-        this.add_point(
-            event_group,
-            job.y,
-            + event_ts,
-            event_aesthetics[event_name].fill,  // fill color
-            event_aesthetics[event_name].border_color,  // border color
-            'circle',
-            event_aesthetics[event_name].size,
-            event_aesthetics[event_name].border_size,
-            point_group
-        );
-    }
-
-    add_point(marker_type, y, x, fill, border_color, symbol, size, line_width, group=null) {
-        this.markers[marker_type].y.push(y);
-        this.markers[marker_type].x.push(x);
-        this.markers[marker_type].fill.push(fill);
-        this.markers[marker_type].border.push(border_color);
-        this.markers[marker_type].symbol.push(symbol);
-        this.markers[marker_type].size.push(size);
-        this.markers[marker_type].line_width.push(line_width);
-        
-        if(group !== null) {
-            this.markers[marker_type].groups.push(group);
-            this.markers[marker_type].styles[group] = {
-                'line': {'color': fill, 'size': line_width},
-                'marker': {'color': fill, 'line': {'color': fill, 'size': line_width}}
-            }    
-        }
     }
 
     get_now_marker() {
@@ -331,128 +240,222 @@ class SchedulerPlot {
         }
     }
 
+    get_jobs_order() {
+        return Object.keys(this.scheduler.jobs);
+    }
+
+    render_execution_background(job_y, execution) {
+        let aes = event_aesthetics[execution.status];
+
+        return {
+            "mode": "markers+lines",
+            "type": "scatter",
+            "x": [execution.start_ts, execution.end_ts],
+            "y": [job_y, job_y],
+            "line": {
+                "width": aes.size + aes.border_size,
+                "color": aes.border_color
+            },
+            "marker": {
+                "line": {
+                    "width": 0
+                },
+                "size": aes.size + aes.border_size,
+                "color": aes.border_color,
+                "opacity": 1,
+                "symbol": 'circle'
+            },
+            "hoverinfo": false,
+            "cliponaxis": false,
+            "showlegend": false,
+            "hovertemplate": null
+        }
+    }
+
+    render_execution(job_y, execution) {
+        let aes = event_aesthetics[execution.status];
+
+        return {
+            "mode": "markers+lines",
+            "type": "scatter",
+            "x": [execution.start_ts, execution.end_ts],
+            "y": [job_y, job_y],
+            "line": {
+                "width": aes.size
+            },
+            "marker": {
+                "line": {
+                    "width": 0
+                },
+                "size": aes.size,
+                "color": aes.fill,
+                "opacity": 1,
+                "symbol": 'circle'
+            },
+            "hoverinfo": "x+y",
+            "cliponaxis": false,
+            "hoverlabel": {
+                "namelength": 15
+            },
+            "showlegend": false,
+            "hovertemplate": ""
+        };
+    }
+
     get_plot_data() {
+        let shapes = [];
+        let annotations = [];
+        let executions_data = [];
+        let point_events = {
+            'x': [],
+            'y': [],
+            'symbol': [],
+            'fill': [],
+            'size': [],
+            'border_color': [],
+            'border_size': []
+        };
+
+        this.add_plot_shapes(shapes);
+
+        let job_ids = this.get_jobs_order();
+
+        for(let job_idx in job_ids) {
+            let job_id = job_ids[job_idx];
+            let job = this.scheduler.jobs[job_id];
+
+            let job_y = 66 + job_idx * 86;
+            let executions = job.executions;
+            let execution_keys = Object.keys(executions).sort();
+
+            for(let execution_idx in execution_keys) {
+                let execution_key = execution_keys[execution_idx];
+                let execution = executions[execution_key];
+
+                // Job events backgrounds.
+                executions_data.push(this.render_execution_background(job_y, execution));
+                executions_data.push(this.render_execution(job_y, execution));
+            }
+
+            for(let event_idx in job.events) {
+                let event = job.events[event_idx];
+                let aes = event_aesthetics[event.event_name];
+
+                point_events.x.push(event.ts);
+                point_events.y.push(job_y);
+                point_events.fill.push(aes.fill);
+                point_events.border_color.push(aes.border_color);
+                point_events.size.push(aes.size);
+                point_events.border_size.push(aes.border_size);
+            }
+
+            for(let event_idx in job.next_run_times) {
+                let aes = event_aesthetics['job_scheduled'];
+
+                point_events.x.push(+ job.next_run_times[event_idx]);
+                point_events.y.push(job_y);
+                point_events.fill.push(aes.fill);
+                point_events.border_color.push(aes.border_color);
+                point_events.size.push(aes.size);
+                point_events.border_size.push(aes.border_size);
+            }
+
+            let job_min_ts = job.min_ts();
+            let job_max_ts = job.max_ts();
+
+            if(job_min_ts < this.x_min()) {
+                job_min_ts = this.x_min();
+                // TODO: add indicator.
+            }
+            if(job_max_ts > this.x_max()) {
+                job_max_ts = this.x_max();
+                // TODO: add indicator.
+            }
+
+            // Add job cards.
+            shapes.push({
+                "type": "path",
+                "path": this.job_background(+ job_min_ts, + job_max_ts, job_y - 50, job_y + 20),
+                "layer": "below",
+                "fillcolor": "#2F344D"
+            })
+
+            shapes.push({
+                "type": "line",
+                "x0": job_min_ts,
+                "x1": job_max_ts,
+                "y0": job_y,
+                "y1": job_y,
+                "line": {
+                    "color": "#474966",
+                    "width": 1
+                },
+                "opacity": 0.8,
+                "layer": "below"
+            })
+
+            annotations.push({
+                "x": + job_min_ts,
+                "y": job_y - 34,
+                "text": job.name
+            });
+        }
+
+        // Job events that have no duration (schedued executions, missfires, max_instances).
+        executions_data.push({
+            "mode": "markers",
+            "type": "scatter",
+            "x": point_events.x,
+            "y": point_events.y,
+            "line": {
+                "width": 11
+            },
+            "marker": {
+                "line": {
+                    "width": point_events.border_size,
+                    "color": point_events.border_color,
+                },
+                "size": point_events.size,
+                "color": point_events.fill,
+                "opacity": 1,
+                "maxdisplayed": 0,
+                "symbol": point_events.symbol
+            },
+            "hoverinfo": "x+y",
+            "cliponaxis": false,
+            "hoverlabel": {
+                "namelength": 15
+            },
+            "showlegend": false,
+            "hovertemplate": ""
+        });
+
         var now_marker = this.get_now_marker();
 
-        return [
-            // Job events backgrounds.
-            {
-                "mode": "markers+lines",
-                "type": "scatter",
-                "x": this.markers['job_events'].x,
-                "y": this.markers['job_events'].y,
+        // Now marker.
+        executions_data.push({
+            "mode": "markers+lines",
+            "type": "scatter",
+            "x": now_marker.x,
+            "y": now_marker.y,
+            "marker": {
                 "line": {
-                    "width": 12,
-                    "color": "#2B3046"
+                    "width": 0
                 },
-                "marker": {
-                    "line": {
-                        "width": 1,
-                        "color": "#2B3046",
-                    },
-                    "size": 12,
-                    "color": "#2B3046",
-                    "opacity": 1,
-                    "maxdisplayed": 0,
-                    "symbol": this.markers['job_events'].symbol
-                },
-                "transforms": [{
-                    "type": 'groupby',
-                    "groups": this.markers['job_events'].groups
-                }],
-                "hoverinfo": "x+y",
-                "cliponaxis": false,
-                "hoverlabel": {
-                    "namelength": 15
-                },
-                "showlegend": false,
-                "hovertemplate": ""
-            },
-            // Job events.
-            {
-                "mode": "markers+lines",
-                "type": "scatter",
-                "x": this.markers['job_events'].x,
-                "y": this.markers['job_events'].y,
-                "line": {
-                    "width": 11
-                },
-                "marker": {
-                    "line": {
-                        "width": this.markers['job_events'].line_width,
-                        "color": this.markers['job_events'].border,
-                    },
-                    "size": this.markers['job_events'].size,
-                    "color": this.markers['job_events'].fill,
-                    "opacity": 1,
-                    "maxdisplayed": 0,
-                    "symbol": this.markers['job_events'].symbol
-                },
-                "transforms": [{
-                    "type": 'groupby',
-                    "groups": this.markers['job_events'].groups,
-                    "styles": this.markers['job_events'].styles
-                }],
-                "hoverinfo": "x+y",
-                "cliponaxis": false,
-                "hoverlabel": {
-                    "namelength": 15
-                },
-                "showlegend": false,
-                "hovertemplate": ""
-            },
-            // Scheduled events.
-            {
-                "mode": "markers",
-                "type": "scatter",
-                "x": this.markers['point_events'].x,
-                "y": this.markers['point_events'].y,
-                "line": {
-                    "width": 11
-                },
-                "marker": {
-                    "line": {
-                        "width": this.markers['point_events'].line_width,
-                        "color": this.markers['point_events'].border,
-                    },
-                    "size": this.markers['point_events'].size,
-                    "color": this.markers['point_events'].fill,
-                    "opacity": 1,
-                    "maxdisplayed": 0,
-                    "symbol": this.markers['point_events'].symbol
-                },
-                "transforms": [{
-                    "type": 'groupby',
-                    "groups": this.markers['point_events'].groups,
-                    "styles": this.markers['point_events'].styles
-                }],
-                "hoverinfo": "x+y",
-                "cliponaxis": false,
-                "hoverlabel": {
-                    "namelength": 15
-                },
-                "showlegend": false,
-                "hovertemplate": ""
-            },
-            // Now marker.
-            {
-                "mode": "markers+lines",
-                "type": "scatter",
-                "x": now_marker.x,
-                "y": now_marker.y,
-                "marker": {
-                    "line": {
-                        "width": 0
-                    },
-                    "size": 8,
-                    "color": event_aesthetics['job_running'].fill,
-                    // data.border.push('rgba(89, 126, 255, 0.8)');
-                    "opacity": 1,
-                    "maxdisplayed": 0,
-                    "symbol": now_marker.symbol
-                }
+                "size": 8,
+                "color": event_aesthetics['job_running'].fill,
+                // data.border.push('rgba(89, 126, 255, 0.8)');
+                "opacity": 1,
+                "maxdisplayed": 0,
+                "symbol": now_marker.symbol
             }
-        ];
+        });
+
+        return {
+            'data': executions_data,
+            'shapes': shapes,
+            'annotations': annotations
+        };
     }
 
     job_background(x0, x1, y0, y1, radius_px=5) {
@@ -486,9 +489,7 @@ class SchedulerPlot {
         return "M " + p1 + " Q " + q1 + ' ' + p2 + ' L ' + p3 + " Q " + q2 + ' ' + p4 + ' L ' + p5 + " Q " + q3 + ' ' + p6 + ' L ' + p7 + ' Q ' + q4 + ' ' + p8 + " Z";
     }
 
-    get_plot_shapes() {
-        var shapes = [];
-
+    add_plot_shapes(shapes) {
         shapes.push({
             "type": "line",
             "x0": this.x_min(),
@@ -503,6 +504,7 @@ class SchedulerPlot {
             "layer": "below"
         })
 
+        // Plot box.
         shapes.push({
             "type": "line",
             "x0": this.x_max(),
@@ -517,6 +519,7 @@ class SchedulerPlot {
             "layer": "below"
         })
 
+        // Minor breaks.
         for(var x = this.x_min() + this.time_interval; x < this.x_max(); x += this.time_interval) {
             shapes.push({
                 "type": "line",
@@ -532,54 +535,13 @@ class SchedulerPlot {
             })            
         }
 
-        // Add job cards.
-        for(var job_id in this.jobs) {
-            var job = this.jobs[job_id];
-
-            shapes.push({
-                "type": "path",
-                "path": this.job_background(+ job.min_ts, + job.max_ts, job.y - 50, job.y + 20),
-                "layer": "below",
-                "fillcolor": "#2F344D"
-            })
-
-            shapes.push({
-                "type": "line",
-                "x0": job.min_ts,
-                "x1": job.max_ts,
-                "y0": job.y,
-                "y1": job.y,
-                "line": {
-                    "color": "#474966",
-                    "width": 1
-                },
-                "opacity": 0.8,
-                "layer": "below"
-            })
-        }
-
         return shapes;
-    }
-
-    get_plot_annotations() {
-        var annotations = [];
-
-        // Add job names.
-        for(var job_id in this.jobs) {
-            var job = this.jobs[job_id];
-
-            annotations.push({
-                "x": + job.min_ts,
-                "y": job.y - 34,
-                "text": job.name
-            });
-        }
-
-        return annotations;
     }
 
     plot(plot_element, lower_axis_element) {
         var main_plot_layout = JSON.parse(JSON.stringify(figure_template));  // TODO: make this more efficient. :\
+
+        let plot_elements = this.get_plot_data();
 
         main_plot_layout.layout.margin.b = 0;
         main_plot_layout.layout.height = this.plot_height();
@@ -588,8 +550,8 @@ class SchedulerPlot {
         main_plot_layout.layout.xaxis.dtick = this.time_interval * 2;
         main_plot_layout.layout.xaxis.range = [this.x_min(), this.x_max()];
         main_plot_layout.layout.yaxis.range = [this.y_max(), this.y_min()];
-        main_plot_layout.layout.shapes = this.get_plot_shapes();
-        main_plot_layout.layout.annotations = this.get_plot_annotations();
+        main_plot_layout.layout.shapes = plot_elements['shapes'];
+        main_plot_layout.layout.annotations = plot_elements['annotations'];
 
         var lower_axis_layout = JSON.parse(JSON.stringify(figure_template));  // TODO: make this more efficient. :\
 
@@ -608,7 +570,7 @@ class SchedulerPlot {
         lower_axis_element.style["height"] = 41 + 'px';
 
         Plotly.newPlot(plot_element,  {
-            data: this.get_plot_data(),
+            data: plot_elements['data'],
             layout: main_plot_layout.layout,
             frames: main_plot_layout.frames,
             config: {"displayModeBar": false}
