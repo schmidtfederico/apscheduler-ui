@@ -3,51 +3,50 @@
     <head><meta charset="utf-8" /><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans&display=swap" rel="stylesheet"></head>
     <body style="background-color: #1D1E2E">
         
-        <script type="text/javascript" src="lib/plotlyjs-bundle.js"></script>
+        <script type="text/javascript" src="lib/plotly-basic.min.js"></script>
+        <script type="text/javascript" src="plot/aesthetics.js"></script>
+        <script type="text/javascript" src="plot/plotly_templates.js"></script>
+        <script type="text/javascript" src="plot/scheduler_plot.js"></script>
+        <script type="text/javascript" src="model/scheduler.js"></script>
+        <script type="text/javascript" src="model/job.js"></script>
         <script type="text/javascript" src="mock_data.js"></script>
-        <script type="text/javascript" src="scheduler_plot.js"></script>
-        
+
         <div id="plots-container" style="width: 100%">
-            <div id="plotly-main-plot" style="width: 100%; height: 0;" class="plotly-graph-div"></div>
+            <div style="overflow: hidden; height: 40px; width: 100%">
+                <div id="plotly-upper-axis" style="width: 100%; height: 90px; margin: 0 auto; margin-bottom: -1px;" class="plotly-graph-div"></div>
+            </div>
+            <div id="plotly-main-plot" style="width: 100%; height: 0; margin: 0 auto;" class="plotly-graph-div"></div>
             <div style="overflow: hidden; height: 44px; width: 100%">
-                <div id="plotly-lower-axis" style="width: 100%; height: 90px; margin-top: -1px;" class="plotly-graph-div"></div>
+                <div id="plotly-lower-axis" style="width: 100%; height: 90px; margin: 0 auto; margin-top: -1px;" class="plotly-graph-div"></div>
             </div>
         </div>
         <script type="text/javascript">
+            let scheduler = new Scheduler(scheduler_mock_data);
+            let scheduler_plot = new SchedulerPlot(scheduler, 3600000);
+
             (function(){
-                let scheduler_plot = new SchedulerPlot(3600000);
-
-                for (var job_id in scheduler_mock_data.jobs) {
-                    var job = scheduler_mock_data.jobs[job_id];
-
-                    scheduler_plot.add_job(job_id, job.properties.name);
-
-                    if(job.properties.next_run_time) {
-                        // Next scheduled run time.
-                        for(var idx in job.properties.next_run_time) {
-                            scheduler_plot.add_scheduled_event(job_id, new Date(job.properties.next_run_time[idx]));
-                        }
-                    }
-
-                    // Past events.
-                    for (var event_idx in job.events) {
-                        var event = job.events[event_idx];
-                        var event_ts = new Date(event['event_ts']);
-
-                        scheduler_plot.add_job_event(job_id, event_ts, event['event_name'], event['scheduled_run_time']);
-                    }
-                }
-
                 var plots_container = document.getElementById('plots-container');
                 var main_plot = document.getElementById('plotly-main-plot');
+                var upper_axis = document.getElementById('plotly-upper-axis');
                 var lower_axis = document.getElementById('plotly-lower-axis');
 
                 var resizeDebounce = null;
 
                 function renderPlot() {
                     var bb = plots_container.getBoundingClientRect();
+                    console.log(bb.width);
                     scheduler_plot.target_plot_width = bb.width;
-                    scheduler_plot.plot(main_plot, lower_axis);
+                    scheduler_plot.plot(main_plot, upper_axis, lower_axis);
+
+                    // main_plot.on('plotly_click', function(data){
+                    //     console.log('Click!')
+                    //     var pts = '';
+                    //     for(var i=0; i < data.points.length; i++){
+                    //         pts = 'x = '+data.points[i].x +'\ny = '+
+                    //             data.points[i].y.toPrecision(4) + '\n\n';
+                    //     }
+                    //     alert('Closest point clicked:\n\n'+pts);
+                    // });
                 }
                 
                 window.addEventListener('resize', function() {
@@ -58,17 +57,6 @@
                 });
 
                 renderPlot();
-
-                main_plot.on('plotly_click', function(data){
-                    console.log('Click!')
-                    var pts = '';
-                    for(var i=0; i < data.points.length; i++){
-                        pts = 'x = '+data.points[i].x +'\ny = '+
-                            data.points[i].y.toPrecision(4) + '\n\n';
-                    }
-                    alert('Closest point clicked:\n\n'+pts);
-                });
-                
            }());
         </script>
     </body>
