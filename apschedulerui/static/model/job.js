@@ -68,10 +68,14 @@ class Job {
     }
 
     min_ts() {
+        if(this.stats.first_event_ts === null) return this.stats.added_ts;
+
         return (this.stats.added_ts < this.stats.first_event_ts) ? this.stats.added_ts : this.stats.first_event_ts;
     }
 
     max_ts() {
+        if(this.next_run_times === undefined) return this.stats.last_event_ts;
+
         let max_next_run = Math.max( ...this.next_run_times );
 
         return (max_next_run > this.stats.last_event_ts) ? max_next_run : this.stats.last_event_ts;
@@ -85,6 +89,12 @@ class Job {
 
         if(this.stats.first_event_ts === null || event.ts < this.stats.first_event_ts) {
             this.stats.first_event_ts = event.ts;
+        }
+
+        if(event.next_run_times !== undefined) {
+            this.next_run_times = []
+            event.next_run_times.forEach(ts => this.next_run_times.push(new Date(ts)));
+            // this.next_run_times = event.next_run_times;
         }
 
         if(this[event.event_name] !== undefined) {

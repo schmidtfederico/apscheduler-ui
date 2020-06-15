@@ -1,16 +1,22 @@
 
 <html>
-    <head><meta charset="utf-8" /><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans&display=swap" rel="stylesheet"></head>
-    <body style="background-color: #1D1E2E">
-        
-        <script type="text/javascript" src="lib/plotly-basic.min.js"></script>
-        <script type="text/javascript" src="plot/aesthetics.js"></script>
-        <script type="text/javascript" src="plot/plotly_templates.js"></script>
-        <script type="text/javascript" src="plot/scheduler_plot.js"></script>
-        <script type="text/javascript" src="model/scheduler.js"></script>
-        <script type="text/javascript" src="model/job.js"></script>
-        <script type="text/javascript" src="mock_data.js"></script>
 
+    <head>
+        <meta charset="utf-8" />
+        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans&display=swap" rel="stylesheet">
+        <title>apscheduler ui</title>
+<!--        <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js" integrity="sha256-yr4fRk/GU1ehYJPAs8P4JlTgu0Hdsp4ZKrx8bDEDC3I=" crossorigin="anonymous"></script>-->
+        <script type="text/javascript" src="static/lib/socket.io.js"></script>
+        <script type="text/javascript" src="static/lib/plotly-basic.min.js"></script>
+
+        <script type="text/javascript" src="static/plot/aesthetics.js"></script>
+        <script type="text/javascript" src="static/plot/plotly_templates.js"></script>
+        <script type="text/javascript" src="static/plot/scheduler_plot.js"></script>
+        <script type="text/javascript" src="static/model/scheduler.js"></script>
+        <script type="text/javascript" src="static/model/job.js"></script>
+        <script type="text/javascript" src="static/mock_data.js"></script>
+    </head>
+    <body style="background-color: #1D1E2E">
         <div id="plots-container" style="width: 100%">
             <div style="overflow: hidden; height: 40px; width: 100%">
                 <div id="plotly-upper-axis" style="width: 100%; height: 90px; margin: 0 auto; margin-bottom: -1px;" class="plotly-graph-div"></div>
@@ -22,42 +28,83 @@
         </div>
         <script type="text/javascript">
             let scheduler = new Scheduler(scheduler_mock_data);
-            let scheduler_plot = new SchedulerPlot(scheduler, 3600000);
+            // let scheduler_plot = new SchedulerPlot(scheduler, 60 * 1000);
+            let scheduler_plot = new SchedulerPlot(scheduler, 60 * 1000);
+            let full_redraw = true;
 
-            (function(){
-                var plots_container = document.getElementById('plots-container');
-                var main_plot = document.getElementById('plotly-main-plot');
-                var upper_axis = document.getElementById('plotly-upper-axis');
-                var lower_axis = document.getElementById('plotly-lower-axis');
+            var plots_container = document.getElementById('plots-container');
+            var main_plot = document.getElementById('plotly-main-plot');
+            var upper_axis = document.getElementById('plotly-upper-axis');
+            var lower_axis = document.getElementById('plotly-lower-axis');
 
-                var resizeDebounce = null;
+            var resizeDebounce = null;
 
-                function renderPlot() {
-                    var bb = plots_container.getBoundingClientRect();
-                    console.log(bb.width);
-                    scheduler_plot.target_plot_width = bb.width;
-                    scheduler_plot.plot(main_plot, upper_axis, lower_axis);
+            function renderPlot() {
+                var bb = plots_container.getBoundingClientRect();
+                scheduler_plot.target_plot_width = bb.width;
+                scheduler_plot.plot(main_plot, upper_axis, lower_axis);
 
-                    // main_plot.on('plotly_click', function(data){
-                    //     console.log('Click!')
-                    //     var pts = '';
-                    //     for(var i=0; i < data.points.length; i++){
-                    //         pts = 'x = '+data.points[i].x +'\ny = '+
-                    //             data.points[i].y.toPrecision(4) + '\n\n';
-                    //     }
-                    //     alert('Closest point clicked:\n\n'+pts);
-                    // });
+                // main_plot.on('plotly_click', function(data){
+                //     console.log('Click!')
+                //     var pts = '';
+                //     for(var i=0; i < data.points.length; i++){
+                //         pts = 'x = '+data.points[i].x +'\ny = '+
+                //             data.points[i].y.toPrecision(4) + '\n\n';
+                //     }
+                //     alert('Closest point clicked:\n\n'+pts);
+                // });
+            }
+
+            window.addEventListener('resize', function() {
+                if (resizeDebounce) {
+                    window.clearTimeout(resizeDebounce);
                 }
-                
-                window.addEventListener('resize', function() {
-                    if (resizeDebounce) {
-                        window.clearTimeout(resizeDebounce);
-                    }
-                    resizeDebounce = window.setTimeout(renderPlot, 100);
-                });
+                resizeDebounce = window.setTimeout(renderPlot, 100);
+            });
 
-                renderPlot();
-           }());
+            let interval_forced_redraw = null;
+
+            window.setInterval(function() {
+                if(full_redraw) {
+                    full_redraw = false;
+                    console.log('redraw ' + new Date());
+                    renderPlot();
+
+                    if(interval_forced_redraw) {
+                        window.clearTimeout(interval_forced_redraw);
+                    }
+                    interval_forced_redraw = window.setTimeout(function () {
+                        // Trigger next forced redraw when we're approaching the boundaries of the next interval.
+                        full_redraw = true;
+                    }, Math.max(scheduler_plot.time_interval, 5000))
+                }
+            }, 500);
+        </script>
+
+        <script type="text/javascript" charset="utf-8">
+            var socket = io();
+
+            socket.on('connect', function() {
+                console.log('Connected!')
+                socket.emit('connected');
+            });
+
+            socket.on('disconnected', function() {
+                console.log('Lost connection to backend :(');
+            })
+
+            socket.on('init_jobs', function(json) {
+                console.log('init_jobs', json);
+                scheduler = new Scheduler(json);
+                scheduler_plot.scheduler = scheduler;
+                full_redraw = true;
+            })
+
+            socket.on('job_event', function(json) {
+                console.log('job_event', json);
+                scheduler.process_event(json);
+                full_redraw = true;
+            })
         </script>
     </body>
 </html>

@@ -50,13 +50,7 @@ class SchedulerPlot {
     }
 
     now_ts() {
-        let ts = null;
-        for(let job_id in this.scheduler.jobs) {
-            if(ts === null || ts < this.scheduler.jobs[job_id].stats.last_event_ts)
-                ts = this.scheduler.jobs[job_id].stats.last_event_ts;
-        }
-
-        return ts;
+        return new Date();
     }
 
     y_min() {
@@ -79,8 +73,8 @@ class SchedulerPlot {
         return truncated_now + n_intervals * this.time_interval;
     }
 
-    get_now_marker() {
-        var now = (+ this.now_ts());
+    get_now_marker(now_ts) {
+        var now = (+ now_ts);
 
         return {
             'x': [now, now],
@@ -103,7 +97,8 @@ class SchedulerPlot {
             "y": [job_y, job_y],
             "line": {
                 "width": aes.size + aes.border_size,
-                "color": aes.border_color
+                "color": aes.border_color,
+                "simplify": false
             },
             "marker": {
                 "line": {
@@ -128,7 +123,8 @@ class SchedulerPlot {
             "x": [execution.start_ts, execution.end_ts],
             "y": [job_y, job_y],
             "line": {
-                "width": aes.size
+                "width": aes.size,
+                "simplify": false
             },
             "marker": {
                 "line": {
@@ -167,6 +163,8 @@ class SchedulerPlot {
             'border_size': []
         };
 
+        let active_executions = [];
+
         this.add_plot_shapes(shapes);
 
         let job_ids = this.get_jobs_order();
@@ -199,9 +197,21 @@ class SchedulerPlot {
 
                 if(execution.start_ts < job_min_ts) continue;
 
+                if(execution.status === 'job_submitted')
+                    execution.end_ts = this.now_ts();
+
                 // Job events backgrounds.
                 executions_data.push(this.render_execution_background(job_y, execution));
                 executions_data.push(this.render_execution(job_y, execution));
+
+                if(execution.status === 'job_submitted') {
+                    // We need to animate these data points after rendering the initial plot!
+                    active_executions.push(executions_data.length - 2);
+                    active_executions.push(executions_data.length - 1);
+
+                    // Avoid jobs that are not scheduled to run in the future have cards that do not cover the "running" animation.
+                    job_max_ts = Math.max(job_max_ts, (+ this.now_ts()) + this.time_interval);
+                }
             }
 
             if(job.stats.added_ts !== undefined && job.stats.added_ts >= job_min_ts) {
@@ -231,8 +241,11 @@ class SchedulerPlot {
 
             for(let event_idx in job.next_run_times) {
                 let aes = event_aesthetics['job_scheduled'];
+                let next_run_time = job.next_run_times[event_idx];
 
-                point_events.x.push(job.next_run_times[event_idx]);
+                if(next_run_time > job_max_ts) continue;
+
+                point_events.x.push(next_run_time);
                 point_events.y.push(job_y);
                 point_events.fill.push(aes.fill);
                 point_events.border_color.push(aes.border_color);
@@ -272,6 +285,7 @@ class SchedulerPlot {
         }
 
         let plot_data = [];
+        let animated_data_points = [];
 
         plot_data.push({
             "mode": "markers",
@@ -291,6 +305,7 @@ class SchedulerPlot {
             "cliponaxis": false
         });
 
+        active_executions.forEach(e => animated_data_points.push(e + plot_data.length));
         executions_data.forEach(e => plot_data.push(e));
 
         // Job events that have no duration (schedued executions, missfires, max_instances).
@@ -313,7 +328,7 @@ class SchedulerPlot {
             "cliponaxis": false
         });
 
-        var now_marker = this.get_now_marker();
+        var now_marker = this.get_now_marker(this.now_ts());
 
         // Now marker.
         plot_data.push({
@@ -338,7 +353,8 @@ class SchedulerPlot {
         return {
             'data': plot_data,
             'shapes': shapes,
-            'annotations': annotations
+            'annotations': annotations,
+            'animated_data_points': animated_data_points
         };
     }
 
@@ -469,11 +485,9 @@ class SchedulerPlot {
         upper_axis_element.style["width"] = this.plot_width() + 'px';
         upper_axis_element.style["height"] = 41 + 'px';
 
-
         Plotly.newPlot(plot_element,  {
             data: plot_elements['data'],
             layout: main_plot_layout.layout,
-            frames: main_plot_layout.frames,
             config: {"displayModeBar": false}
         });
 
@@ -486,5 +500,39 @@ class SchedulerPlot {
             layout: upper_axis_layout.layout,
             config: {"displayModeBar": false, "staticPlot": true}
         });
+
+        let one_px_time = this.time_interval / this.interval_size_px;
+
+        let now_ts = new Date();
+        let frames = [];
+        for(let pixel_number = one_px_time; pixel_number < this.time_interval; pixel_number += one_px_time) {
+            // Clone data array.
+            let frame_data = plot_elements.data.slice();
+            let future_now = (+now_ts) + pixel_number;
+
+            plot_elements.animated_data_points.forEach(idx => frame_data[idx].x[1] = future_now);
+            frame_data[frame_data.length - 1].x = [future_now, future_now];
+
+            frames.push({
+                name: 'frame_' + pixel_number,
+                data: frame_data
+            });
+        }
+
+        Plotly.animate(
+            plot_element,
+            frames,
+            {
+                transition: {
+                  duration: this.time_interval,
+                  easing: 'linear'
+                },
+                frame: {
+                  duration: this.time_interval,
+                  redraw: false
+                },
+                mode: 'immediate'
+            }
+        );
     }
 }
