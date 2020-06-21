@@ -92,8 +92,9 @@ class Scheduler {
     }
 
     job_added(event) {
-        // TODO: define event.properties in server.
-        this.jobs[event.job_id] = new Job(event.properties);
+        this.jobs[event.job_id] = new Job(event);
+        // Process event so that next_run_times get updated.
+        this.jobs[event.job_id].process_job_event(event);
     }
 
     all_jobs_removed(event) {

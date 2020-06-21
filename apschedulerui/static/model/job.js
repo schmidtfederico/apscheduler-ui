@@ -94,7 +94,6 @@ class Job {
         if(event.next_run_times !== undefined) {
             this.next_run_times = []
             event.next_run_times.forEach(ts => this.next_run_times.push(new Date(ts)));
-            // this.next_run_times = event.next_run_times;
         }
 
         if(this[event.event_name] !== undefined) {
@@ -106,8 +105,8 @@ class Job {
 
     job_modified(event) {
         this.stats.modified_ts = event.ts;
-        // TODO: do we really want to plot job modifications?
-        //this.events.push(event);
+        // TODO: re-read job properties!
+        this.events.push(event);
     }
 
     job_removed(event) {
@@ -128,23 +127,22 @@ class Job {
         }
 
         this.executions[event.scheduled_run_ts]['events'].push(event);
-        // TODO: update next run times!
     }
 
     job_executed(event) {
-        if(event.scheduled_run_ts !== undefined && this.executions[event.scheduled_run_ts] === undefined) {
-            this.executions[event.scheduled_run_ts] = {'events': []};
-        }
-
-        if(this.executions[event.scheduled_run_ts]['start_ts'] === undefined) {
-            this.executions[event.scheduled_run_ts]['start_ts'] = event.ts;
-        }
-        this.executions[event.scheduled_run_ts]['end_ts'] = event.ts;
-        this.executions[event.scheduled_run_ts]['status'] = event.event_name;
-        this.executions[event.scheduled_run_ts]['events'].push(event);
+        this.job_ended(event);
     }
 
     job_error(event) {
+        this.job_ended(event);
+    }
+
+    job_missed(event) {
+        this.job_ended(event);
+        this.events.push(event);
+    }
+
+    job_ended(event) {
         if(event.scheduled_run_ts !== undefined && this.executions[event.scheduled_run_ts] === undefined) {
             this.executions[event.scheduled_run_ts] = {'events': []};
         }
@@ -155,10 +153,6 @@ class Job {
         this.executions[event.scheduled_run_ts]['end_ts'] = event.ts;
         this.executions[event.scheduled_run_ts]['status'] = event.event_name;
         this.executions[event.scheduled_run_ts]['events'].push(event);
-    }
-
-    job_missed(event) {
-        this.events.push(event);
     }
 
     job_max_instances(event) {

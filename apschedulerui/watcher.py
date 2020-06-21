@@ -11,6 +11,10 @@ from multiprocessing import RLock
 class SchedulerEventsListener:
 
     @abstractmethod
+    def scheduler_event(self, event):
+        pass
+
+    @abstractmethod
     def job_event(self, event):
         pass
 
@@ -124,6 +128,8 @@ class SchedulerWatcher:
         with self.write_lock:
             self.scheduler_info['state'] = self.scheduler_states[self.scheduler.state]
 
+        self.notify_scheduler_event(event_name, event_ts)
+
     def scheduler_shutdown(self, event, event_name, event_ts):
         """
         Args:
@@ -131,6 +137,8 @@ class SchedulerWatcher:
         """
         with self.write_lock:
             self.scheduler_info['state'] = self.scheduler_states[self.scheduler.state]
+
+        self.notify_scheduler_event(event_name, event_ts)
 
     def scheduler_paused(self, event, event_name, event_ts):
         """
@@ -140,6 +148,8 @@ class SchedulerWatcher:
         with self.write_lock:
             self.scheduler_info['state'] = self.scheduler_states[self.scheduler.state]
 
+        self.notify_scheduler_event(event_name, event_ts)
+
     def scheduler_resumed(self, event, event_name, event_ts):
         """
         Args:
@@ -147,6 +157,8 @@ class SchedulerWatcher:
         """
         with self.write_lock:
             self.scheduler_info['state'] = self.scheduler_states[self.scheduler.state]
+
+        self.notify_scheduler_event(event_name, event_ts)
 
     def executor_added(self, event, event_name, event_ts):
         """
@@ -163,15 +175,18 @@ class SchedulerWatcher:
         with self.write_lock:
             self.executors[event.alias] = self._repr_executor(executor) if executor else None
 
+        # TODO: notify executor added.
+
     def executor_removed(self, event, event_name, event_ts):
         """
         Args:
             event (apscheduler.events.SchedulerEvent):
         """
-        print(event_name)
         with self.write_lock:
             if event.alias in self.executors:
                 del self.executors[event.alias]
+
+        # TODO: notify executor removed.
 
     def jobstore_added(self, event, event_name, event_ts):
         """
@@ -179,9 +194,9 @@ class SchedulerWatcher:
             event (apscheduler.events.SchedulerEvent):
         """
         # TODO: list all jobs in jobstore and add them.
-        print(event_name)
-        with self.write_lock:
-            self._jobstore_added(event.alias, event_ts)
+        self._jobstore_added(event.alias, event_ts)
+
+        # TODO: notify jobstore added.
 
     def jobstore_removed(self, event, event_name, event_ts):
         """
@@ -196,14 +211,13 @@ class SchedulerWatcher:
             if event.alias in self.jobstores:
                 del self.jobstores[event.alias]
 
-        print(event_name)
+        # TODO: notify jobstore removed.
 
     def all_jobs_removed(self, event, event_name, event_ts):
         """
         Args:
             event (apscheduler.events.SchedulerEvent):
         """
-        print(event_name)
         with self.write_lock:
             for job_id in self.jobs.keys():
                 self._job_removed(job_id, removal_ts=event_ts)
@@ -213,81 +227,71 @@ class SchedulerWatcher:
         Args:
             event (apscheduler.events.JobEvent):
         """
-        print(event_name)
-        with self.write_lock:
-            self._job_added(event.job_id, event.jobstore, event_ts)
+        self._job_added(event.job_id, event.jobstore, event_ts)
 
     def job_removed(self, event, event_name, event_ts):
         """
         Args:
             event (apscheduler.events.JobEvent):
         """
-        print('Job %s removed from %s' % (event.job_id, event.jobstore))
-        with self.write_lock:
-            self._job_removed(event.job_id, removal_ts=event_ts)
+        # print('Job %s removed from %s' % (event.job_id, event.jobstore))
+        self._job_removed(event.job_id, removal_ts=event_ts)
 
     def job_modified(self, event, event_name, event_ts):
         """
         Args:
             event (apscheduler.events.JobEvent):
         """
-        print('Job %s modified in %s' % (event.job_id, event.jobstore))
-        with self.write_lock:
-            self._job_modified(event.job_id, event.jobstore, event_ts)
+        # print('Job %s modified in %s' % (event.job_id, event.jobstore))
+        self._job_modified(event.job_id, event.jobstore, event_ts)
 
     def job_executed(self, event, event_name, event_ts):
         """
         Args:
             event (apscheduler.events.JobExecutionEvent):
         """
-        print('Job %s from %s executed (retval=%s)' % (event.job_id, event.jobstore, event.retval))
-        with self.write_lock:
-            self._add_job_event(event.job_id, event.jobstore, event_name, event_ts,
-                                retval=event.retval,
-                                scheduled_run_time=self._repr_ts(event.scheduled_run_time))
+        # print('Job %s from %s executed (retval=%s)' % (event.job_id, event.jobstore, event.retval))
+        self._job_execution_event(event.job_id, event.jobstore, event_name, event_ts,
+                                  retval=event.retval,
+                                  scheduled_run_time=self._repr_ts(event.scheduled_run_time))
 
     def job_error(self, event, event_name, event_ts):
         """
         Args:
             event (apscheduler.events.JobExecutionEvent):
         """
-        print('Job error')
-        with self.write_lock:
-            self._add_job_event(event.job_id, event.jobstore, event_name, event_ts,
-                                retval=event.retval,
-                                exception=str(event.exception),
-                                traceback=str(event.traceback),
-                                scheduled_run_time=self._repr_ts(event.scheduled_run_time))
+        self._job_execution_event(event.job_id, event.jobstore, event_name, event_ts,
+                                  retval=event.retval,
+                                  exception=str(event.exception),
+                                  traceback=str(event.traceback),
+                                  scheduled_run_time=self._repr_ts(event.scheduled_run_time))
 
     def job_missed(self, event, event_name, event_ts):
         """
         Args:
             event (apscheduler.events.JobExecutionEvent):
         """
-        print('Job missed')
-        with self.write_lock:
-            self._add_job_event(event.job_id, event.jobstore, event_name, event_ts,
-                                scheduled_run_time=self._repr_ts(event.scheduled_run_time))
+        # print('Job missed')
+        self._job_execution_event(event.job_id, event.jobstore, event_name, event_ts,
+                                  scheduled_run_time=self._repr_ts(event.scheduled_run_time))
 
     def job_submitted(self, event, event_name, event_ts):
         """
         Args:
             event (apscheduler.events.JobSubmissionEvent):
         """
-        print('Job %s from %s submitted' % (event.job_id, event.jobstore))
-        with self.write_lock:
-            self._add_job_event(event.job_id, event.jobstore, event_name, event_ts,
-                                scheduled_run_time=self._repr_ts(event.scheduled_run_times[0]))
+        # print('Job %s from %s submitted' % (event.job_id, event.jobstore))
+        self._job_execution_event(event.job_id, event.jobstore, event_name, event_ts,
+                                  scheduled_run_time=self._repr_ts(event.scheduled_run_times[0]))
 
     def job_max_instances(self, event, event_name, event_ts):
         """
         Args:
             event (apscheduler.events.JobSubmissionEvent):
         """
-        print('Job max instances')
-        with self.write_lock:
-            self._add_job_event(event.job_id, event.jobstore, event_name, event_ts,
-                                scheduled_run_time=self._repr_ts(event.scheduled_run_times[0]))
+        # print('Job max instances')
+        self._job_execution_event(event.job_id, event.jobstore, event_name, event_ts,
+                                  scheduled_run_time=self._repr_ts(event.scheduled_run_times[0]))
 
     def scheduler_summary(self):
         return {
@@ -296,6 +300,108 @@ class SchedulerWatcher:
             'scheduler': self.scheduler_info,
             'jobs': self.jobs
         }
+
+    def notify_scheduler_event(self, event_name, event_ts):
+        for listener in self.listeners:
+            listener.scheduler_event({
+                'event_name': event_name,
+                'event_ts': event_ts
+            })
+
+    def notify_job_event(self, event):
+        event['next_run_times'] = []
+
+        job = self.scheduler.get_job(job_id=event['job_id'])
+
+        if job:
+            next_run_time = job.next_run_time
+            while next_run_time and len(event['next_run_times']) < 11:
+                event['next_run_times'].append(self._repr_ts(next_run_time))
+                next_run_time = job.trigger.get_next_fire_time(next_run_time, None)
+
+        for listener in self.listeners:
+            listener.job_event(event)
+
+    def _job_added(self, job_id, jobstore, added_ts, job=None):
+        with self.write_lock:
+            if job_id not in self.jobs:
+                self.jobs[job_id] = {
+                    'added_time': added_ts,
+                    'modified_time': added_ts,
+                    'removed_time': None,
+                    'properties': self._repr_job(
+                        self.scheduler.get_job(job_id, jobstore) if job is None else job,
+                        jobstore=jobstore
+                    ),
+                    'events': []
+                }
+
+        event = {
+            'job_id': job_id,
+            'event_name': 'job_added',
+            'event_ts': added_ts
+        }
+
+        event.update(self.jobs[job_id])
+
+        self.notify_job_event(event)
+
+    def _job_modified(self, job_id, jobstore, event_ts):
+        with self.write_lock:
+            self.jobs[job_id]['properties'] = self._repr_job(
+                self.scheduler.get_job(job_id, jobstore),
+                jobstore=jobstore
+            )
+            self.jobs[job_id]['modified_time'] = event_ts
+
+        event = {
+            'job_id': job_id,
+            'event_name': 'job_modified',
+            'event_ts': event_ts
+        }
+
+        event.update(self.jobs[job_id])
+
+        self.notify_job_event(event)
+
+    def _job_removed(self, job_id, removal_ts):
+        with self.write_lock:
+            self.jobs[job_id]['removed_time'] = removal_ts
+
+        self.notify_job_event({
+            'job_id': job_id,
+            'event_name': 'job_removed',
+            'event_ts': removal_ts
+        })
+
+    def _job_execution_event(self, job_id, jobstore, event_name, event_ts, **kwargs):
+        with self.write_lock:
+            if job_id not in self.jobs:
+                self._job_added(job_id, jobstore, event_ts)
+
+            event = {
+                'job_id': job_id,
+                'event_name': event_name,
+                'event_ts': event_ts,
+                'next_run_times': []
+            }
+            event.update(kwargs)
+
+            self.jobs[job_id]['events'].append(event)
+
+            if len(self.jobs[job_id]['events']) > self.event_log_size:
+                # Limit job event log size.
+                self.jobs[job_id]['events'] = self.jobs[job_id]['events'][-self.event_log_size:]
+
+        self.notify_job_event(event)
+
+    def _jobstore_added(self, jobstore, event_ts):
+        with self.write_lock:
+            for job in self.scheduler.get_jobs(jobstore=jobstore):
+                self._job_added(job.id, jobstore, event_ts, job)
+
+            if hasattr(self.scheduler, '_jobstores') and isinstance(self.scheduler._jobstores, dict):
+                self.jobstores[jobstore] = self._repr_jobstore(self.scheduler._jobstores[jobstore])
 
     def _repr_job(self, job, jobstore=None):
         return {
@@ -314,67 +420,6 @@ class SchedulerWatcher:
             'misfire_grace_time': getattr(job, 'misfire_grace_time', None),
             'max_instances': getattr(job, 'max_instances', None)
         }
-
-    def _jobstore_added(self, jobstore, event_ts):
-        for job in self.scheduler.get_jobs(jobstore=jobstore):
-            self._job_added(job.id, jobstore, event_ts, job)
-
-        if hasattr(self.scheduler, '_jobstores') and isinstance(self.scheduler._jobstores, dict):
-            self.jobstores[jobstore] = self._repr_jobstore(self.scheduler._jobstores[jobstore])
-
-    def _job_added(self, job_id, jobstore, added_ts, job=None):
-        if job_id not in self.jobs:
-            self.jobs[job_id] = {
-                'added_time': added_ts,
-                'modified_time': added_ts,
-                'removed_time': None,
-                'properties': self._repr_job(
-                    self.scheduler.get_job(job_id, jobstore) if job is None else job,
-                    jobstore=jobstore
-                ),
-                'events': []
-            }
-
-    def _job_modified(self, job_id, jobstore, event_ts):
-        self.jobs[job_id]['properties'] = self._repr_job(
-            self.scheduler.get_job(job_id, jobstore),
-            jobstore=jobstore
-        )
-        self.jobs[job_id]['modified_time'] = event_ts
-
-    def _job_removed(self, job_id, removal_ts):
-        self.jobs[job_id]['modified_time'] = removal_ts
-        self.jobs[job_id]['removed_time'] = removal_ts
-
-    def _add_job_event(self, job_id, jobstore, event_name, event_ts, **kwargs):
-        if job_id not in self.jobs:
-            self._job_added(job_id, jobstore, event_ts)
-
-        event = {
-            'job_id': job_id,
-            'event_name': event_name,
-            'event_ts': event_ts,
-            'next_run_times': []
-        }
-        event.update(kwargs)
-
-        self.jobs[job_id]['events'].append(event)
-
-        if len(self.jobs[job_id]['events']) > self.event_log_size:
-            # Limit job event log size.
-            self.jobs[job_id]['events'] = self.jobs[job_id]['events'][-self.event_log_size:]
-
-        # TODO: calculate next run times.
-        job = self.scheduler.get_job(job_id=job_id)
-
-        if job:
-            next_run_time = job.next_run_time
-            while next_run_time and len(event['next_run_times']) < 10:
-                event['next_run_times'].append(self._repr_ts(next_run_time))
-                next_run_time = job.trigger.get_next_fire_time(next_run_time, None)
-
-        for listener in self.listeners:
-            listener.job_event(event)
 
     def _repr_ts(self, ts):
         """

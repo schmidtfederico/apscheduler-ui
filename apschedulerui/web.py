@@ -88,6 +88,9 @@ class SchedulerUI(SchedulerEventsListener):
     def job_event(self, event):
         self._socket_io.emit('job_event', event)
 
+    def scheduler_event(self, event):
+        self._socket_io.emit('scheduler_event', event)
+
     def start(self, daemon=True, **kwargs):
         self._scheduler_listener.add_listener(self)
         self._web_server_thread = threading.Thread(target=self._start, name='apscheduler-ui', kwargs=kwargs)
