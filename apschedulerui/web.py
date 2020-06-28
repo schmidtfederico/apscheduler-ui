@@ -22,6 +22,7 @@ class SchedulerUI(SchedulerEventsListener):
             'pause_job': False,
             'remove_job': False,
             'pause_scheduler': False,
+            'stop_scheduler': False,
             'run_job': False,
         }
 
@@ -30,7 +31,7 @@ class SchedulerUI(SchedulerEventsListener):
 
         self._scheduler_listener = SchedulerWatcher(scheduler)
 
-        self._web_server = flask.Flask(__name__)
+        self._web_server = flask.Flask(__name__ )
         self._socket_io = None
 
         try:
@@ -44,13 +45,11 @@ class SchedulerUI(SchedulerEventsListener):
         self._web_server_thread = None
 
     def _init_endpoints(self):
-        self._web_server.add_url_rule('/', 'index', self.index)
-
         if 'pause_job' in self.capabilities and self.capabilities['pause_job'] is True:
             self._web_server.add_url_rule('/api/job/pause/<job_id>', 'pause_job', self.pause_job, methods=['POST'])
             self._web_server.add_url_rule('/api/job/resume/<job_id>', 'resume_job', self.resume_job, methods=['POST'])
 
-        if 'pause_scheduler' in self.capabilities and self.capabilities['pause_scheduler'] is True:
+        if self.capabilities.get('pause_scheduler', False):
             self._web_server.add_url_rule(
                 '/api/scheduler/pause', 'pause_scheduler', self.pause_scheduler, methods=['POST']
             )
@@ -58,32 +57,67 @@ class SchedulerUI(SchedulerEventsListener):
                 '/api/scheduler/resume', 'resume_scheduler', self.resume_scheduler, methods=['POST']
             )
 
-        if 'remove_job' in self.capabilities and self.capabilities['remove_job'] is True:
-            self._web_server.add_url_rule('/api/job/remove/<job_id>', 'remove_job', self.remove_job, methods=['POST'])
+        if self.capabilities.get('stop_scheduler', False):
+            self._web_server.add_url_rule(
+                '/api/scheduler/stop', 'stop_scheduler', self.stop_scheduler, methods=['POST']
+            )
+            self._web_server.add_url_rule(
+                '/api/scheduler/start', 'start_scheduler', self.start_scheduler, methods=['POST']
+            )
+
+        if self.capabilities.get('remove_job', False):
+            self._web_server.add_url_rule('/api/job/<job_id>/remove', 'remove_job', self.remove_job, methods=['POST'])
+
+        if self.capabilities.get('pause_job', False):
+            self._web_server.add_url_rule('/api/job/<job_id>/pause', 'pause_job', self.pause_job, methods=['POST'])
+
+        self._web_server.add_url_rule('/', 'index', self.index, defaults={'path': ''})
+        self._web_server.add_url_rule('/<path:path>', 'index', self.index)
 
         self._socket_io.on_event('connected', self.client_connected)
 
-    def index(self):
-        return self._web_server.send_static_file('index.html')
+    def index(self, path):
+        return self._web_server.send_static_file('index_ng.html')
 
     def pause_scheduler(self):
+        # TODO: acquire lock!
         self.scheduler.pause()
+        return 'ok'
 
     def resume_scheduler(self):
+        # TODO: acquire lock!
         self.scheduler.resume()
+        return 'ok'
+
+    def stop_scheduler(self):
+        # TODO: acquire lock!
+        self.scheduler.shutdown(wait=False)
+        return 'ok'
+
+    def start_scheduler(self):
+        # TODO: acquire lock!
+        self.scheduler.start()
+        return 'ok'
 
     def pause_job(self, job_id):
+        # TODO: acquire lock!
         self.scheduler.pause_job(job_id)
+        return 'ok'
 
     def resume_job(self, job_id):
+        # TODO: acquire lock!
         self.scheduler.resume_job(job_id)
+        return 'ok'
 
     def remove_job(self, job_id):
+        # TODO: acquire lock!
         self.scheduler.remove_job(job_id)
+        return 'ok'
 
     def client_connected(self):
         logging.info('Client connected')
         flask_socketio.emit('init_jobs', self._scheduler_listener.scheduler_summary())
+        flask_socketio.emit('init_capabilities', self.capabilities)
 
     def job_event(self, event):
         self._socket_io.emit('job_event', event)

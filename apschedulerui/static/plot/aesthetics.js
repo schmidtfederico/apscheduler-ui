@@ -35,6 +35,18 @@ const event_aesthetics = {
         border_color: '#3EBF91',
         border_size: 1
     },
+    job_modified: {
+        fill: '#2B3046',
+        size: 6,
+        border_color: '#597EFF',
+        border_size: 1
+    },
+    job_removed: {
+        fill: '#2B3046',
+        size: 6,
+        border_color: '#FF6464',
+        border_size: 1
+    },
     job_max_instances: {
         fill: '#FF6464',
         size: 10,

@@ -17,6 +17,7 @@
         <script type="text/javascript" src="static/mock_data.js"></script>
     </head>
     <body style="background-color: #1D1E2E">
+        <input id="jobs_filter" placeholder="filter jobs">
         <div id="plots-container" style="width: 100%">
             <div style="overflow: hidden; height: 40px; width: 100%">
                 <div id="plotly-upper-axis" style="width: 100%; height: 90px; margin: 0 auto; margin-bottom: -1px;" class="plotly-graph-div"></div>
@@ -36,12 +37,16 @@
             var main_plot = document.getElementById('plotly-main-plot');
             var upper_axis = document.getElementById('plotly-upper-axis');
             var lower_axis = document.getElementById('plotly-lower-axis');
+            var jobs_filter = document.getElementById('jobs_filter');
 
             var resizeDebounce = null;
+            var jobsFilterDebounce = null;
 
             function renderPlot() {
+                console.log('renderPlot');
                 var bb = plots_container.getBoundingClientRect();
                 scheduler_plot.target_plot_width = bb.width;
+                scheduler_plot.jobs_filter = jobs_filter.value;
                 scheduler_plot.plot(main_plot, upper_axis, lower_axis);
 
                 // main_plot.on('plotly_click', function(data){
@@ -54,6 +59,14 @@
                 //     alert('Closest point clicked:\n\n'+pts);
                 // });
             }
+
+            jobs_filter.addEventListener('input', function () {
+                console.log('Filter changed');
+                if(jobsFilterDebounce) {
+                    window.clearTimeout(jobsFilterDebounce);
+                }
+                jobsFilterDebounce = window.setTimeout(renderPlot, 200);
+            });
 
             window.addEventListener('resize', function() {
                 if (resizeDebounce) {
@@ -82,7 +95,7 @@
         </script>
 
         <script type="text/javascript" charset="utf-8">
-            var socket = io();
+            const socket = io();
 
             socket.on('connect', function() {
                 console.log('Connected!')

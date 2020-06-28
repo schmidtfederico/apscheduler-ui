@@ -1,0 +1,89 @@
+<div id="content" class="container-fluid" role="main">
+    <div class="container">
+        <div class="row view-controls">
+            <div class="btn-group" role="group">
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    ng-click="display_mode = 'list'"
+                    ng-class="{ 'active' : (display_mode === 'list') }"
+                >
+                    <i class="fas fa-list-ul"></i>
+                    Jobs list
+                </button>
+
+                <button
+                    type="button" class="btn btn-secondary timeline"
+                    ng-click="display_mode = 'timeline'"
+                    ng-class="{ 'active' : (display_mode === 'timeline') }"
+                >
+                    <i class="far fa-clock"></i>
+                    Timeline
+                </button>
+            </div>
+
+
+            <select ng-show="display_mode === 'timeline'" ng-model="plot_interval">
+                <option>Hour</option>
+                <option>Minute</option>
+            </select>
+
+            <div class="pull-right col-sm-3">
+              <input type="text"
+                     class="form-control search-box"
+                     placeholder="Search"
+                     aria-label="search"
+                     aria-describedby="basic-addon1"
+                     ng-model="jobs_filter"
+                     ng-change="filter_query = jobs_filter"
+              >
+            </div>
+        </div>
+    </div>
+    <div class="container" ng-show="display_mode === 'list'">
+        <div class="row">
+            <div class="panel panel-default jobs-panel">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>NAME</th>
+                            <th>TIME</th>
+                            <th>STATUS</th>
+                            <th>NEXT RUN TIME</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="job in scheduler.jobs | toArray | jobsFilter:filter_query |  orderBy: '-stats.last_event_ts'">
+                            <td class="col-sm-5">
+                                <a href="/job/{{ job.id | encodeURI }}">{{ job.name }}</a>
+                            </td>
+                            <td class="col-sm-2">{{ job.stats.last_event_ts | date : 'yyyy-MM-dd HH:mm:ss.sss' }}</td>
+                            <td class="col-sm-2 text-left">
+                                <span class="job-status-indicator {{ job.stats.current_status }}"></span>
+                                <span>{{ job.stats.current_status.replace('job_', '') }}</span>
+                            </td>
+                            <td class="col-sm-2">{{ job.next_run_times[0] | date : 'yyyy-MM-dd HH:mm:ss.sss' }}</td>
+                        </tr>
+                        <tr ng-show="Object.keys(scheduler.jobs).length == 0"><td colspan="4" class="text-center"><i>No jobs :(</i></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="container-fluid" ng-show="display_mode === 'timeline'">
+        <div ng-if="!plot_loaded" class="text-center">
+            <i class="fa fa-spinner" aria-hidden="true"></i>
+        </div>
+        <div class="row">
+            <div id="plots-container" style="width: 100%">
+                <div style="overflow: hidden; height: 40px; width: 100%">
+                    <div id="plotly-upper-axis" style="width: 100%; height: 90px; margin: 0 auto; margin-bottom: -1px;" class="plotly-graph-div"></div>
+                </div>
+                <div id="plotly-main-plot" style="width: 100%; height: 0; margin: 0 auto;" class="plotly-graph-div"></div>
+                <div style="overflow: hidden; height: 44px; width: 100%">
+                    <div id="plotly-lower-axis" style="width: 100%; height: 90px; margin: 0 auto; margin-top: -1px;" class="plotly-graph-div"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

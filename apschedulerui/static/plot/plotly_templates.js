@@ -74,8 +74,8 @@ const figure_template = JSON.stringify({
         },
         "hovermode": "closest",
         "showlegend": false,
-        "plot_bgcolor": "rgb(29, 30, 46)",
-        "paper_bgcolor": "rgb(29, 30, 46)"
+        "plot_bgcolor": "transparent",
+        "paper_bgcolor": "transparent"
     },
     "frames": []
 })

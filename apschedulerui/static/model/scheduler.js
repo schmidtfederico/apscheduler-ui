@@ -20,7 +20,7 @@ class Scheduler {
         this.class = state.scheduler["class"];
         this.state = state.scheduler["state"];
         this.timezone = state.scheduler["timezone"];
-        this.timezone = state.scheduler["jobstore_retry_interval"];
+        this.jobstore_retry_interval = state.scheduler["jobstore_retry_interval"];
         this.misfire_grace_time = state.scheduler["misfire_grace_time"];
         this.coalesce = state.scheduler["coalesce"];
         this.max_instances = state.scheduler["max_instances"];

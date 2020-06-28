@@ -6,7 +6,9 @@ with open('README.md', 'r') as f:
     long_description = f.read()
 
 dependencies = [
-    'apscheduler >= 3.0.0'
+    'apscheduler >= 3.0.0',
+    'flask >= 1.0.0',
+    'flask_socketio >= 4.0.0'
 ]
 
 setup(

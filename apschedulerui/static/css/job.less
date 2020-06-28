@@ -1,0 +1,72 @@
+@import "style";
+
+div.job-plot {
+    width: 100%;
+    background-color: #2B2F46;
+    padding: 0 50px;
+    padding-top: 20px;
+    overflow-x: scroll;
+}
+
+div.job-detail {
+    font-family: @monospaced-font;
+
+    .job-summary {
+        padding-top: 24px;
+        padding-bottom: 7px;
+        border: 1px solid @panel-row-border-color;
+        box-sizing: border-box;
+        border-radius: 8px;
+        margin-bottom: 20px;
+
+        .row {
+            padding: 0 32px;
+        }
+
+        .job-controls {
+            border-top: 1px solid @panel-row-border-color;
+            padding: 0 15px;
+            padding-top: 24px;
+            padding-bottom: 24px - 7px;
+        }
+    }
+
+    .job-executions {
+        overflow-y: scroll;
+        max-height: 44px * 10;
+    }
+
+    h3 {
+        font-family: @body-font;
+        padding-bottom: 30px;
+        margin: 0;
+    }
+
+    h4 {
+        color: @panel-header-font-color;
+        font-family: @body-font;
+        font-size: 16px;
+        line-height: 21px;
+        padding-top: 40px;
+        padding-bottom: 18px;
+    }
+
+    h6 {
+        color: @panel-header-font-color;
+        font-family: @body-font;
+        font-size: 12px;
+        line-height: 16px;
+        display: inline;
+        padding-right: 8px;
+
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+    }
+
+    ul {
+        li {
+            margin-bottom: 18px;
+        }
+    }
+}
+

@@ -1,12 +1,14 @@
 
 
 class SchedulerPlot {
+
     constructor(scheduler, time_interval, target_plot_width=1300, min_intervals=12, interval_size_px=60) {
         this.scheduler = scheduler;
         this.time_interval = time_interval;
         this.interval_size_px = interval_size_px;
         this.target_plot_width = target_plot_width;
         this.min_intervals = min_intervals;
+        this.jobs_filter = "";
     }
 
     n_intervals() {
@@ -26,7 +28,15 @@ class SchedulerPlot {
     }
 
     n_jobs() {
-        return Object.keys(this.scheduler.jobs).length;
+        let n = 0;
+
+        Object.keys(this.scheduler.jobs).forEach(job_id =>
+            n+= this.scheduler.jobs[job_id].contains(this.jobs_filter) &&
+                this.scheduler.jobs[job_id].min_ts() <= this.x_max() &&
+                this.scheduler.jobs[job_id].max_ts() >= this.x_min()
+        );
+
+        return n;
     }
 
     min_ts() {
@@ -50,7 +60,9 @@ class SchedulerPlot {
     }
 
     now_ts() {
-        return new Date();
+        // Return timestamps in the scheduler's timezone.
+        const now_ts = new Date().toLocaleString("en-US", {timeZone: this.scheduler.timezone})
+        return new Date(now_ts);
     }
 
     y_min() {
@@ -140,6 +152,14 @@ class SchedulerPlot {
         };
     }
 
+    render_job_name(job_y, job_min_ts, job) {
+        return {
+            "x": + job_min_ts,
+            "y": job_y - 34,
+            "text": '<a href="/job/' + encodeURIComponent(job.id) + '" target="_self" style="color: white">' + job.name + '</a>'
+        }
+    }
+
     get_plot_data() {
         let shapes = [];
         let annotations = [];
@@ -169,11 +189,15 @@ class SchedulerPlot {
 
         let job_ids = this.get_jobs_order();
 
+        let n_jobs_displayed = 0;
+
         for(let job_idx in job_ids) {
             let job_id = job_ids[job_idx];
             let job = this.scheduler.jobs[job_id];
 
-            let job_y = 66 + job_idx * 86;
+            if(!job.contains(this.jobs_filter.toLowerCase())) continue;
+
+            let job_y = 66 + n_jobs_displayed * 86;
 
             let job_min_ts = job.min_ts();
             let job_max_ts = job.max_ts();
@@ -188,6 +212,10 @@ class SchedulerPlot {
                 // TODO: add indicator.
             }
 
+            if(job_max_ts < this.x_min() || job_min_ts > this.x_max()) continue;  // Job is outside of view pane.
+
+            n_jobs_displayed += 1;
+
             let executions = job.executions;
             let execution_keys = Object.keys(executions).sort();
 
@@ -199,6 +227,8 @@ class SchedulerPlot {
 
                 if(execution.status === 'job_submitted')
                     execution.end_ts = this.now_ts();
+
+                if(execution.status === 'job_missed') continue;
 
                 // Job events backgrounds.
                 executions_data.push(this.render_execution_background(job_y, execution));
@@ -254,13 +284,17 @@ class SchedulerPlot {
             }
 
             // Add job cards.
-            shapes.push({
-                "type": "path",
-                "path": this.job_background(+ job_min_ts, + job_max_ts, job_y - 50, job_y + 20),
-                "layer": "below",
-                "fillcolor": jobs_aesthetics.card_background,
-                "opacity": jobs_aesthetics.card_opacity
-            })
+            const job_background = this.job_background(+ job_min_ts, + job_max_ts, job_y - 50, job_y + 20);
+
+            if(job_background) {
+                shapes.push({
+                    "type": "path",
+                    "path": job_background,
+                    "layer": "below",
+                    "fillcolor": jobs_aesthetics.card_background,
+                    "opacity": jobs_aesthetics.card_opacity
+                })
+            }
 
             // Add y-grid inside job card.
             shapes.push({
@@ -277,11 +311,9 @@ class SchedulerPlot {
                 "layer": "below"
             })
 
-            annotations.push({
-                "x": + job_min_ts,
-                "y": job_y - 34,
-                "text": job.name
-            });
+            const job_name = this.render_job_name(job_y, job_min_ts, job);
+
+            if(job_name) annotations.push(job_name);
         }
 
         let plot_data = [];
@@ -351,6 +383,7 @@ class SchedulerPlot {
         });
 
         return {
+            'n_jobs_displayed': n_jobs_displayed,
             'data': plot_data,
             'shapes': shapes,
             'annotations': annotations,
@@ -480,8 +513,6 @@ class SchedulerPlot {
 
         plot_element.style["width"] = this.plot_width() + 'px';
         plot_element.style["height"] = this.plot_height() + 'px';
-        lower_axis_element.style["width"] = this.plot_width() + 'px';
-        lower_axis_element.style["height"] = 41 + 'px';
         upper_axis_element.style["width"] = this.plot_width() + 'px';
         upper_axis_element.style["height"] = 41 + 'px';
 
@@ -491,15 +522,20 @@ class SchedulerPlot {
             config: {"displayModeBar": false}
         });
 
-        Plotly.newPlot(lower_axis_element,  {
-            layout: lower_axis_layout.layout,
-            config: {"displayModeBar": false, "staticPlot": true}
-        });
-
         Plotly.newPlot(upper_axis_element,  {
             layout: upper_axis_layout.layout,
             config: {"displayModeBar": false, "staticPlot": true}
         });
+
+        if(lower_axis_element) {
+            lower_axis_element.style["width"] = this.plot_width() + 'px';
+            lower_axis_element.style["height"] = 41 + 'px';
+
+            Plotly.newPlot(lower_axis_element,  {
+                layout: lower_axis_layout.layout,
+                config: {"displayModeBar": false, "staticPlot": true}
+            });
+        }
 
         let one_px_time = this.time_interval / this.interval_size_px;
 
@@ -534,5 +570,47 @@ class SchedulerPlot {
                 mode: 'immediate'
             }
         );
+    }
+}
+
+class JobPlot extends SchedulerPlot {
+
+    constructor(job_id, scheduler, target_plot_width=1300, min_intervals=6) {
+        let cum_sum = 0;
+
+        const executions = scheduler.jobs[job_id].executions;
+        const execution_id = Object.keys(executions);
+
+        let avg_execution_diff = 100 * 1000;
+
+        if(execution_id.length > 1) {
+            for(let i = 1; i < execution_id.length; i++) {
+                cum_sum += executions[execution_id[i]].start_ts - executions[execution_id[i - 1]].start_ts;
+            }
+            avg_execution_diff = cum_sum / (execution_id.length - 1);
+        }
+
+        let time_interval = Math.pow(10, Math.round(Math.log10(avg_execution_diff)));
+
+        super(scheduler, time_interval, target_plot_width, min_intervals, 100);
+        this.job_id = job_id;
+    }
+
+    add_plot_shapes() { return null; }
+
+    job_background() { return null; }
+
+    n_jobs() {
+        return 1;
+    }
+
+    render_job_name() { return null; }
+
+    plot_height() {
+        return 70;
+    }
+
+    get_jobs_order() {
+        return [this.job_id];
     }
 }

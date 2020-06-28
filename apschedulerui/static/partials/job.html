@@ -1,0 +1,93 @@
+<div class="job-plot">
+    <div ng-if="!plot_loaded" class="text-center">
+        <i class="fa fa-spinner" aria-hidden="true"></i>
+    </div>
+    <div id="plots-container" style="width: 100%">
+        <div style="overflow: hidden; height: 40px; width: 100%">
+            <div id="plotly-upper-axis" style="width: 100%; height: 90px; margin: 0 auto; margin-bottom: -1px;" class="plotly-graph-div"></div>
+        </div>
+        <div id="plotly-main-plot" style="width: 100%; height: 0; margin: 0 auto;" class="plotly-graph-div"></div>
+    </div>
+</div>
+<div id="content" class="container job-detail" role="main">
+    <div class="job-summary">
+        <div class="row">
+            <div class="col-sm-12"><h3>{{ jobs[jobId].name }}</h3></div>
+        </div>
+        <div class="row">
+            <div class="col-md-6">
+                <ul>
+                    <li><h6>ID:</h6>{{ jobId }}</li>
+                    <li><h6>NEXT RUN TIME:</h6>{{ jobs[jobId].next_run_times[0] | date:'yyyy-MM-dd HH:mm:ss.sss' }}</li>
+                    <li><h6>TRIGGER:</h6>{{ jobs[jobId].trigger }}</li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <ul>
+                    <li><h6>EXECUTOR:</h6>{{ jobs[jobId].executor }}</li>
+                    <li><h6>JOBSTORE:</h6>{{ jobs[jobId].jobstore }}</li>
+                </ul>
+            </div>
+        </div>
+        <div class="job-controls" ng-if="capabilities.can_control_jobs">
+            <div class="row">
+                <button class="btn control-btn" ng-if="capabilities.run_job">
+                    <i class="far fa-play-circle"/>
+                    Run now
+                </button>
+                <button class="btn control-btn control-neutral" ng-if="capabilities.pause_job">
+                    <i class="far fa-pause-circle"/>
+                    Pause job
+                </button>
+                <button class="btn control-btn control-negative" ng-if="capabilities.remove_job">
+                    <i class="far fa-times-circle"/>
+                    Remove job
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="panel">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th class="col-sm-5">TIME</th>
+                    <th>EVENT</th>
+                    <th>DETAIL</th>
+                </tr>
+            </thead>
+<!--            <tr ng-show="Object.keys(scheduler.jobs).length == 0"><td colspan="4" class="text-center"><i>No jobs :(</i></td></tr>-->
+        </table>
+        <div class="job-executions">
+            <table class="table">
+                <tbody>
+                    <tr ng-repeat="job_execution in jobs[jobId].executions | toArray | orderBy: '-start_ts'">
+                        <td class="col-sm-5">
+                            {{ job_execution.start_ts | date:'yyyy-MM-dd HH:mm:ss.sss' }}
+                        </td>
+                        <td>
+                            <span class="job-status-indicator {{ job_execution.status }}"></span>
+                            <span>{{ job_execution.status.replace('job_', '') }}</span>
+                        </td>
+                        <td>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <h4>Job properties</h4>
+    <div class="row">
+        <div class="col-sm-12">
+            <ul>
+                <li><h6>FUNC:</h6>{{ jobs[jobId].config['func'] }}</li>
+                <li><h6>FUNC_REF:</h6>{{ jobs[jobId].config['func_ref'] }}</li>
+                <li><h6>ARGS:</h6>{{ jobs[jobId].config['args'] }}</li>
+                <li><h6>KWARGS:</h6>{{ jobs[jobId].config['kwargs'] }}</li>
+                <li><h6>PENDING:</h6>{{ jobs[jobId].stats['pending'] }}</li>
+                <li><h6>COALESCE:</h6>{{ jobs[jobId].config['coalesce'] }}</li>
+                <li><h6>misfire_grace_time:</h6>{{ jobs[jobId].config['misfire_grace_time'] }}</li>
+                <li><h6>max_instances:</h6>{{ jobs[jobId].config['max_instances'] }}</li>
+            </ul>
+        </div>
+    </div>
+</div>

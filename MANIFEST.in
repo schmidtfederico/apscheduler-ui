@@ -3,3 +3,4 @@ include *.md
 include LICENSE.txt
 include .coveragerc
 recursive-include data *
+recursive-include apschedulerui *.html

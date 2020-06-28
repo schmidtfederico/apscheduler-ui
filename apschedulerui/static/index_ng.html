@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="scheduler">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <meta charset="utf-8" />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&display=swap" rel="stylesheet">
+    <title>apscheduler ui</title>
+
+    <link rel="stylesheet" type="text/css" href="/static/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="/static/css/job.css">
+    <link rel="stylesheet" type="text/css" href="/static/css/style.css">
+    <link rel="stylesheet" type="text/css" href="/static/css/modals.css">
+    <link rel="stylesheet" type="text/css" href="/static/css/fontawesome.min.css">
+    <link rel="stylesheet" type="text/css" href="/static/css/fa-solid.min.css">
+    <link rel="stylesheet" type="text/css" href="/static/css/fa-regular.min.css">
+
+
+    <script type="text/javascript" src="/static/lib/socket.io.js"></script>
+    <script type="text/javascript" src="/static/lib/plotly-basic.min.js"></script>
+
+    <script type="text/javascript" src="/static/plot/aesthetics.js"></script>
+    <script type="text/javascript" src="/static/plot/plotly_templates.js"></script>
+    <script type="text/javascript" src="/static/plot/scheduler_plot.js"></script>
+    <script type="text/javascript" src="/static/model/scheduler.js"></script>
+    <script type="text/javascript" src="/static/model/job.js"></script>
+    <base href="/">
+</head>
+<body>
+
+<nav class="navbar navbar-fixed-top" ng-controller="schedulerController">
+    <div class="container">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+                    aria-expanded="false" aria-controls="navbar">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+        </div>
+        <div id="navbar" class="collapse navbar-collapse">
+            <div class="col-md-4">
+                <span>Scheduler status: </span><span class="{{ scheduler.state }}">{{ scheduler.state }}</span>
+            </div>
+            <div class="clearfix col-md-4">
+                <ul class="nav navbar-nav">
+                    <li class="selected-section"><a href="/">OVERVIEW</a></li>
+                    <li><a href="/">EXECUTORS</a></li>
+                    <li><a href="/">JOB STORES</a></li>
+                </ul>
+            </div>
+            <div class="col-md-4 scheduler-controls" ng-if="capabilities.can_control_scheduler">
+                <button class="btn control-btn pull-right"
+                        ng-if="scheduler.state === 'paused'"
+                        ng-click="resume_scheduler()">
+                    <i class="far fa-play-circle"></i>
+                    Resume Scheduler
+                </button>
+
+                <button class="btn control-btn pull-right"
+                        ng-if="scheduler.state === 'stopped'"
+                        ng-click="start_scheduler()">
+                    <i class="far fa-play-circle"></i>
+                    Start Scheduler
+                </button>
+
+                <button class="btn control-btn control-neutral pull-right"
+                        ng-if="capabilities.pause_scheduler && scheduler.state === 'running'"
+                        ng-click="pause_scheduler()">
+                    <i class="far fa-pause-circle"></i>
+                    Pause Scheduler
+                </button>
+
+                <button class="btn control-btn control-negative pull-right"
+                        ng-if="capabilities.stop_scheduler && scheduler.state !== 'stopped'"
+                        ng-click="stop_scheduler()">
+                    <i class="far fa-stop-circle"></i>
+                    Stop Scheduler
+                </button>
+            </div>
+        </div>
+        <!--/.nav-collapse -->
+    </div>
+</nav>
+
+<div class="main-view">
+    <div ng-view></div>
+</div>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+<script src="/static/lib/bootstrap.min.js"></script>
+
+<script src="/static/lib/angular.min.js"></script>
+<script src="/static/lib/angular-route.min.js"></script>
+<script src="/static/lib/ng-sockets.min.js"></script>
+<script src="/static/lib/ui-bootstrap-0.13.3.min.js"></script>
+<script src="/static/app.js"></script>
+<script src="/static/controllers/confirmModal.js"></script>
+<script src="/static/controllers/scheduler.js"></script>
+<script src="/static/controllers/jobList.js"></script>
+<script src="/static/controllers/job.js"></script>
+
+<footer>
+    <div class="container">
+        <div class="col-md-6"><span>All times are {{scheduler.timezone}}</span></div>
+        <div class="col-md-6 text-right"><span>Type: {{scheduler.class}}</span></div>
+    </div>
+</footer>
+</body>
+</html>

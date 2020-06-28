@@ -33,6 +33,8 @@ class Job {
         this.executions = {};
         this.next_run_times = [];
 
+        this.last_event = null;
+
         this.init_from_server(state);
     }
 
@@ -82,6 +84,8 @@ class Job {
     }
 
     process_job_event(event) {
+        this.last_event = event;
+
         if(this.stats.last_event_ts === null || event.ts > this.stats.last_event_ts) {
             this.stats.last_event_ts = event.ts;
             this.stats.current_status = event.event_name;
@@ -157,5 +161,30 @@ class Job {
 
     job_max_instances(event) {
         this.events.push(event);
+    }
+
+    contains(search_term) {
+        let job_status = '';
+
+        if(this.stats.current_status !== null) {
+            job_status = this.stats.current_status.toLowerCase();
+        }
+        const name = this.name.toLowerCase() || '';
+
+        let last_ts = '';
+        let next_ts = '';
+
+        if(this.last_event !== null) {
+            let last_ts = this.last_event.event_ts || '';
+            let next_ts = this.last_event.next_run_times[0] || '';
+
+            last_ts = last_ts.replace('T', ' ');
+            next_ts = next_ts.replace('T', ' ');
+        }
+
+        return name.includes(search_term) ||
+            job_status.includes(search_term) ||
+            last_ts.includes(search_term) ||
+            next_ts.includes(search_term);
     }
 }
