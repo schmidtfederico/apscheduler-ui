@@ -2,6 +2,7 @@ import logging
 import threading
 import flask
 import flask_socketio
+from apscheduler.jobstores.base import JobLookupError
 
 from apschedulerui.watcher import SchedulerWatcher, SchedulerEventsListener
 
@@ -45,10 +46,6 @@ class SchedulerUI(SchedulerEventsListener):
         self._web_server_thread = None
 
     def _init_endpoints(self):
-        if 'pause_job' in self.capabilities and self.capabilities['pause_job'] is True:
-            self._web_server.add_url_rule('/api/job/pause/<job_id>', 'pause_job', self.pause_job, methods=['POST'])
-            self._web_server.add_url_rule('/api/job/resume/<job_id>', 'resume_job', self.resume_job, methods=['POST'])
-
         if self.capabilities.get('pause_scheduler', False):
             self._web_server.add_url_rule(
                 '/api/scheduler/pause', 'pause_scheduler', self.pause_scheduler, methods=['POST']
@@ -70,6 +67,10 @@ class SchedulerUI(SchedulerEventsListener):
 
         if self.capabilities.get('pause_job', False):
             self._web_server.add_url_rule('/api/job/<job_id>/pause', 'pause_job', self.pause_job, methods=['POST'])
+            self._web_server.add_url_rule('/api/job/<job_id>/resume', 'resume_job', self.resume_job, methods=['POST'])
+
+        if self.capabilities.get('run_job', False):
+            self._web_server.add_url_rule('/api/job/<job_id>/run_now', 'run_job', self.run_job, methods=['POST'])
 
         self._web_server.add_url_rule('/', 'index', self.index, defaults={'path': ''})
         self._web_server.add_url_rule('/<path:path>', 'index', self.index)
@@ -77,7 +78,7 @@ class SchedulerUI(SchedulerEventsListener):
         self._socket_io.on_event('connected', self.client_connected)
 
     def index(self, path):
-        return self._web_server.send_static_file('index_ng.html')
+        return self._web_server.send_static_file('index.html')
 
     def pause_scheduler(self):
         # TODO: acquire lock!
@@ -101,18 +102,29 @@ class SchedulerUI(SchedulerEventsListener):
 
     def pause_job(self, job_id):
         # TODO: acquire lock!
-        self.scheduler.pause_job(job_id)
-        return 'ok'
+        try:
+            self.scheduler.pause_job(job_id)
+            return 'ok'
+        except JobLookupError:
+            flask.abort(404, description="Job not found (id: %s)" % job_id)
 
     def resume_job(self, job_id):
         # TODO: acquire lock!
         self.scheduler.resume_job(job_id)
         return 'ok'
 
+    def run_job(self, job_id):
+        logging.info('Running job %s' % job_id)
+        # TODO: implement me!
+        return 'ok'
+
     def remove_job(self, job_id):
         # TODO: acquire lock!
-        self.scheduler.remove_job(job_id)
-        return 'ok'
+        try:
+            self.scheduler.remove_job(job_id)
+            return 'ok'
+        except JobLookupError:
+            flask.abort(404, description="Job not found (id: %s)" % job_id)
 
     def client_connected(self):
         logging.info('Client connected')

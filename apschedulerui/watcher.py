@@ -336,13 +336,15 @@ class SchedulerWatcher:
                     'events': []
                 }
 
-        event = {
-            'job_id': job_id,
-            'event_name': 'job_added',
-            'event_ts': added_ts
-        }
+            event = {
+                'job_id': job_id,
+                'event_name': 'job_added',
+                'event_ts': added_ts
+            }
 
-        event.update(self.jobs[job_id])
+            event.update(self.jobs[job_id])
+
+            self._append_job_event(event)
 
         self.notify_job_event(event)
 
@@ -354,13 +356,14 @@ class SchedulerWatcher:
             )
             self.jobs[job_id]['modified_time'] = event_ts
 
-        event = {
-            'job_id': job_id,
-            'event_name': 'job_modified',
-            'event_ts': event_ts
-        }
+            event = {
+                'job_id': job_id,
+                'event_name': 'job_modified',
+                'event_ts': event_ts,
+                'properties': self.jobs[job_id]['properties']
+            }
 
-        event.update(self.jobs[job_id])
+            self._append_job_event(event)
 
         self.notify_job_event(event)
 
@@ -368,11 +371,15 @@ class SchedulerWatcher:
         with self.write_lock:
             self.jobs[job_id]['removed_time'] = removal_ts
 
-        self.notify_job_event({
-            'job_id': job_id,
-            'event_name': 'job_removed',
-            'event_ts': removal_ts
-        })
+            event = {
+                'job_id': job_id,
+                'event_name': 'job_removed',
+                'event_ts': removal_ts
+            }
+
+            self._append_job_event(event)
+
+        self.notify_job_event(event)
 
     def _job_execution_event(self, job_id, jobstore, event_name, event_ts, **kwargs):
         with self.write_lock:
@@ -387,11 +394,7 @@ class SchedulerWatcher:
             }
             event.update(kwargs)
 
-            self.jobs[job_id]['events'].append(event)
-
-            if len(self.jobs[job_id]['events']) > self.event_log_size:
-                # Limit job event log size.
-                self.jobs[job_id]['events'] = self.jobs[job_id]['events'][-self.event_log_size:]
+            self._append_job_event(event)
 
         self.notify_job_event(event)
 
@@ -404,6 +407,7 @@ class SchedulerWatcher:
                 self.jobstores[jobstore] = self._repr_jobstore(self.scheduler._jobstores[jobstore])
 
     def _repr_job(self, job, jobstore=None):
+        next_run_time = self._repr_ts(getattr(job, 'next_run_time', None))
         return {
             'id': job.id,
             'name': job.name,
@@ -416,10 +420,22 @@ class SchedulerWatcher:
             'kwargs': str(job.kwargs),
             'pending': job.pending,
             'coalesce': getattr(job, 'coalesce', None),
-            'next_run_time': [self._repr_ts(getattr(job, 'next_run_time', None))],
+            'next_run_time': [next_run_time] if next_run_time else None,
             'misfire_grace_time': getattr(job, 'misfire_grace_time', None),
             'max_instances': getattr(job, 'max_instances', None)
         }
+
+    def _append_job_event(self, e):
+        if 'events' in e:
+            del e['events']  # Make sure we won't be appending to the event list a reference to itself!
+
+        job_id = e['job_id']
+
+        self.jobs[job_id]['events'].append(e)
+
+        if len(self.jobs[job_id]['events']) > self.event_log_size:
+            # Limit job event log size.
+            self.jobs[job_id]['events'] = self.jobs[job_id]['events'][-self.event_log_size:]
 
     def _repr_ts(self, ts):
         """
@@ -430,7 +446,7 @@ class SchedulerWatcher:
             str: The timestamp string representation.
         """
         if ts:
-            return ts.isoformat()
+            return ts.strftime('%Y-%m-%d %H:%M:%S.%f')
         return None
 
     def _repr_trigger(self, trigger):
