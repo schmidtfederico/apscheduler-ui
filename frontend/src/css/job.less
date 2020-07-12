@@ -7,10 +7,24 @@ div.job-plot {
     padding: 0 50px;
     padding-top: 20px;
     overflow-x: scroll;
+
+    #plots-container {
+        // Undo the fixed position of the plot in the Overview section.
+        .upper-axis-container {
+            position: relative;
+            top: 0;
+            background-color: transparent;
+        }
+
+        #plotly-main-plot {
+            margin-top: 0;
+        }
+    }
 }
 
 div.job-detail {
     font-family: @monospaced-font;
+    margin-top: 32px;
 
     .job-summary {
         padding-top: 24px;

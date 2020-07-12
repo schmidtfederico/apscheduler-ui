@@ -12,15 +12,15 @@ import '@fortawesome/fontawesome-free/js/fontawesome'
 import '@fortawesome/fontawesome-free/js/solid'
 import '@fortawesome/fontawesome-free/js/regular'
 
-import './css/style.less';
+import './css/index.less';
 
 import Scheduler from './model/scheduler';
 
 import './controllers/confirmModal';
 import './controllers/job_actions';
 import './controllers/job';
-import './controllers/jobList';
-import './controllers/scheduler';
+import './controllers/overview';
+import './controllers/navbar';
 
 
 require('ng-cache-loader?prefix=static/partials!./partials/job.html');
@@ -32,8 +32,8 @@ let schedulerApp = angular.module('scheduler', [
     'btford.socket-io',
     'ui.bootstrap',
     // controllers modules
-    'schedulerModule',
-    'jobListModule',
+    'navbarModule',
+    'overviewModule',
     'jobsModule',
     'modalsControllers',
     'jobActionsModule'
@@ -78,7 +78,7 @@ schedulerApp.config(['$routeProvider', '$locationProvider', function ($routeProv
     $routeProvider.
         when('/', {
             templateUrl: 'static/partials/overview.html',
-            controller: 'jobListController'
+            controller: 'overviewController'
         }).
         when('/job/:jobId', {
             templateUrl: 'static/partials/job.html',

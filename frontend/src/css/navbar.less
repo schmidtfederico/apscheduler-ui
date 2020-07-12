@@ -1,0 +1,103 @@
+@import "variables";
+
+body {
+    .navbar-collapse {
+        background-color: @navbar-bg;
+    }
+
+    .navbar-toggle .icon-bar {
+        background-color: @nav-item-font-color;
+    }
+
+    nav.navbar {
+        background-color: @navbar-bg;
+        color: @panel-header-font-color;
+        font-size: @font-size;
+        //line-height: @font-size + 4px;
+        border: none;
+        height: @navbar-height;
+
+
+        span {
+            line-height: @navbar-height - 2px;
+            padding: 1px 0;
+
+            &.running, &.paused, &.stopped {
+                text-transform: uppercase;
+                background-color: @body-bg;
+                border: 1px solid @scheduler-running;
+                border-radius: 16px;
+                font-size: 10px;
+                color: @scheduler-running;
+                margin: 0 10px;
+                padding: 1px 8px;
+            }
+
+            &.paused, &.stopped {
+                color: @scheduler-not-running;
+                border-color: @scheduler-not-running;
+            }
+        }
+
+        li {
+            &:hover {
+                border-bottom: #ffffff solid 2px;
+            }
+
+            a {
+                @item-padding: (@navbar-height - @font-size - 4px) / 2 - 1px;
+                color: @nav-item-font-color;
+                text-decoration: none;
+                font-size: @font-size;
+                line-height: @font-size + 4px;
+                margin: auto;
+                padding: @item-padding 15px;
+
+                &:focus, &:hover {
+                    background-color: @job-status-border;
+                }
+            }
+
+            // Used when the nav element is the active one.
+            &.selected-section {
+                border-bottom: #ffffff solid 2px;
+
+                a {
+                    color: #ffffff;
+                }
+            }
+        }
+
+        .scheduler-controls {
+            height: @navbar-height;
+            line-height: @navbar-height;
+            text-align: right;
+            padding: 0;
+
+            & button:last-child {
+                margin-right: 0;
+            }
+        }
+    }
+
+    @media (min-width: 768px) {
+        ul.navbar-nav {
+            margin-left: 90px;
+        }
+    }
+
+    @media (min-width: 1200px) {
+        ul.navbar-nav {
+            margin-left: 130px;
+        }
+    }
+
+    ul {
+        list-style: none;
+        padding: 0;
+
+        &.nav {
+            padding: 0 15px;
+        }
+    }
+}

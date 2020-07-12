@@ -1,4 +1,6 @@
 
+import '../css/plotly.less';
+
 let Plotly = require('plotly.js-basic-dist');
 
 import figure_template from './plotly_templates';
@@ -101,7 +103,11 @@ class SchedulerPlot {
     }
 
     get_jobs_order() {
-        return Object.keys(this.scheduler.jobs);
+        let job_ids = Object.keys(this.scheduler.jobs);
+
+        return job_ids.sort((key_a, key_b) => {
+            return this.scheduler.jobs[key_a].stats.last_event_ts - this.scheduler.jobs[key_b].stats.last_event_ts
+        }).reverse();
     }
 
     render_execution_background(job_y, execution) {
@@ -233,8 +239,18 @@ class SchedulerPlot {
                 if(execution.status === 'job_submitted')
                     execution.end_ts = this.now_ts();
 
-                if(execution.status === 'job_missed') continue;
-                // TODO: generate a "fake" event to plot as a standalone event.
+                if(execution.status === 'job_missed') {
+                    let aes = event_aesthetics[execution.status];
+
+                    point_events.x.push(execution.end_ts);
+                    point_events.y.push(job_y);
+                    point_events.fill.push(aes.fill);
+                    point_events.border_color.push(aes.border_color);
+                    point_events.size.push(aes.size);
+                    point_events.border_size.push(aes.border_size);
+
+                    continue;
+                }
 
                 // Job events backgrounds.
                 executions_data.push(this.render_execution_background(job_y, execution));
@@ -279,7 +295,7 @@ class SchedulerPlot {
                 let aes = event_aesthetics['job_scheduled'];
                 let next_run_time = job.next_run_times[event_idx];
 
-                if(next_run_time > job_max_ts) continue;
+                if(next_run_time > job_max_ts || next_run_time < job_min_ts) continue;
 
                 point_events.x.push(next_run_time);
                 point_events.y.push(job_y);
@@ -346,7 +362,7 @@ class SchedulerPlot {
         active_executions.forEach(e => animated_data_points.push(e + plot_data.length));
         executions_data.forEach(e => plot_data.push(e));
 
-        // Job events that have no duration (schedued executions, missfires, max_instances).
+        // Job events that have no duration (scheduled executions, misfires, max_instances).
         plot_data.push({
             "mode": "markers",
             "type": "scatter",

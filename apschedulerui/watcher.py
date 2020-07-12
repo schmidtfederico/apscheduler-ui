@@ -234,7 +234,6 @@ class SchedulerWatcher:
         Args:
             event (apscheduler.events.JobEvent):
         """
-        # print('Job %s removed from %s' % (event.job_id, event.jobstore))
         self._job_removed(event.job_id, removal_ts=event_ts)
 
     def job_modified(self, event, event_name, event_ts):
@@ -242,7 +241,6 @@ class SchedulerWatcher:
         Args:
             event (apscheduler.events.JobEvent):
         """
-        # print('Job %s modified in %s' % (event.job_id, event.jobstore))
         self._job_modified(event.job_id, event.jobstore, event_ts)
 
     def job_executed(self, event, event_name, event_ts):
@@ -250,7 +248,6 @@ class SchedulerWatcher:
         Args:
             event (apscheduler.events.JobExecutionEvent):
         """
-        # print('Job %s from %s executed (retval=%s)' % (event.job_id, event.jobstore, event.retval))
         self._job_execution_event(event.job_id, event.jobstore, event_name, event_ts,
                                   retval=event.retval,
                                   scheduled_run_time=self._repr_ts(event.scheduled_run_time))
@@ -271,7 +268,6 @@ class SchedulerWatcher:
         Args:
             event (apscheduler.events.JobExecutionEvent):
         """
-        # print('Job missed')
         self._job_execution_event(event.job_id, event.jobstore, event_name, event_ts,
                                   scheduled_run_time=self._repr_ts(event.scheduled_run_time))
 
@@ -280,7 +276,6 @@ class SchedulerWatcher:
         Args:
             event (apscheduler.events.JobSubmissionEvent):
         """
-        # print('Job %s from %s submitted' % (event.job_id, event.jobstore))
         self._job_execution_event(event.job_id, event.jobstore, event_name, event_ts,
                                   scheduled_run_time=self._repr_ts(event.scheduled_run_times[0]))
 
@@ -289,7 +284,6 @@ class SchedulerWatcher:
         Args:
             event (apscheduler.events.JobSubmissionEvent):
         """
-        # print('Job max instances')
         self._job_execution_event(event.job_id, event.jobstore, event_name, event_ts,
                                   scheduled_run_time=self._repr_ts(event.scheduled_run_times[0]))
 
@@ -317,7 +311,7 @@ class SchedulerWatcher:
             next_run_time = job.next_run_time
             while next_run_time and len(event['next_run_times']) < 11:
                 event['next_run_times'].append(self._repr_ts(next_run_time))
-                next_run_time = job.trigger.get_next_fire_time(next_run_time, None)
+                next_run_time = job.trigger.get_next_fire_time(next_run_time, next_run_time)
 
         for listener in self.listeners:
             listener.job_event(event)

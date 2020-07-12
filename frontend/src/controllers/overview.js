@@ -1,9 +1,9 @@
 
 import SchedulerPlot from '../view/scheduler_plot';
 
-var jobList = angular.module('jobListModule', []);
+var jobList = angular.module('overviewModule', []);
 
-jobList.controller('jobListController', ['$scope', '$rootScope', '$controller', 'capabilitiesService',
+jobList.controller('overviewController', ['$scope', '$rootScope', '$controller', 'capabilitiesService',
     function ($scope, $rootScope, $controller, capabilitiesService) {
     angular.extend(this, $controller('jobActionsController', {$scope: $scope}));
 
@@ -99,7 +99,7 @@ jobList.controller('jobListController', ['$scope', '$rootScope', '$controller', 
     }, true);
 
     $scope.$watch('plot_interval', function (value) {
-        // Make sure we store this config, so that if user reloads the view we can display keep their preferences.
+        // Make sure we store this config, so that if user reloads the view we can keep their preferences.
         localStorage.setItem('plot_interval', value);
 
         plot_time_interval = {

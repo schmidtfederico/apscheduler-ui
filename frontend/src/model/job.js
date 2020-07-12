@@ -102,8 +102,6 @@ class Job {
 
         if(this[event.event_name] !== undefined) {
             this[event.event_name](event);
-        } else {
-            console.log('Unknown event received', event);
         }
     }
 

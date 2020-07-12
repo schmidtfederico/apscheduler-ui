@@ -11,8 +11,6 @@ job.controller('jobController', ['$scope', '$rootScope', '$routeParams', '$contr
     // Decode jobId, as it'll come encoded since we can't control what users set it to.
     $scope.jobId = decodeURIComponent($routeParams.jobId);
 
-    console.log($scope.jobId);
-
     $scope.jobs = null;
     $scope.plot_loaded = false;
 
@@ -27,7 +25,7 @@ job.controller('jobController', ['$scope', '$rootScope', '$routeParams', '$contr
 
     function renderPlot() {
         if($rootScope.scheduler === undefined) return;
-        console.log('redraw ' + new Date());
+        console.log('redraw job plot ' + new Date());
 
         job_plot.scheduler = $rootScope.scheduler;
         job_plot.target_plot_width = plots_container.getBoundingClientRect().width;

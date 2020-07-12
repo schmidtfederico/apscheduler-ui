@@ -1,5 +1,12 @@
+from apscheduler.triggers.cron import CronTrigger
 from gevent import monkey
 monkey.patch_all()
+import os
+import time
+
+os.environ['TZ'] = 'America/Los_Angeles'
+
+time.tzset()
 
 import time
 import random
@@ -84,6 +91,22 @@ test_scheduler.add_job(
     jobstore='in_memory_2'
 )
 
+test_scheduler.add_job(
+    waiting_job,
+    name='Wait some seconds every 5 minutes',
+    trigger=CronTrigger.from_crontab('*/5 * * * *'),
+    args=[],
+    jobstore='in_memory_2'
+)
+
+test_scheduler.add_job(
+    waiting_job,
+    name='Max instances every 4 minutes',
+    trigger=CronTrigger.from_crontab('*/2 * * * *'),
+    args=[150],
+    jobstore='in_memory_2'
+)
+
 test_scheduler.get_jobs()
 
 test_scheduler.start(paused=True)
@@ -92,13 +115,18 @@ test_scheduler.resume()
 
 time.sleep(50)
 
-test_scheduler.add_job(
-    waiting_job,
-    name='Do something interesting every 5 minutes',
-    trigger=IntervalTrigger(minutes=5),
-    args=[],
-    jobstore='in_memory_2'
-)
+for i in range(20):
+    mins = random.randint(1, 10)
+
+    test_scheduler.add_job(
+        waiting_job,
+        name='[Job #%02d] Do something interesting every %d minutes' % (i+1, mins),
+        trigger=IntervalTrigger(minutes=mins),
+        args=[],
+        jobstore='in_memory_2'
+    )
+
+    time.sleep(random.randint(5, 60))
 
 print('Blocking main thread.')
 

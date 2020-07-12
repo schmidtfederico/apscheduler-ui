@@ -13,8 +13,35 @@
 </head>
 <body>
 
-<nav class="navbar navbar-fixed-top" ng-controller="schedulerController">
+<nav class="navbar navbar-fixed-top" ng-controller="navbarController">
     <div class="container">
+        <div class="pull-left col-sm-4">
+            <span>Scheduler status: </span><span class="{{ scheduler.state }}">{{ scheduler.state }}</span>
+        </div>
+        <div class="col-sm-4 scheduler-controls pull-right" ng-if="capabilities.can_control_scheduler">
+            <button class="btn control-btn" ng-if="scheduler.state === 'paused'" ng-click="resume_scheduler()">
+                <i class="far fa-play-circle"></i>
+                Resume Scheduler
+            </button>
+
+<!--            <button class="btn control-btn" ng-if="scheduler.state === 'stopped'" ng-click="start_scheduler()">-->
+<!--                <i class="far fa-play-circle"></i>-->
+<!--                Start Scheduler-->
+<!--            </button>-->
+
+            <button class="btn control-btn control-neutral" ng-if="capabilities.pause_scheduler && scheduler.state === 'running'"
+                    ng-click="pause_scheduler()">
+                <i class="far fa-pause-circle"></i>
+                Pause Scheduler
+            </button>
+
+<!--            <button class="btn control-btn control-negative"-->
+<!--                    ng-if="capabilities.stop_scheduler && scheduler.state !== 'stopped'"-->
+<!--                    ng-click="stop_scheduler()">-->
+<!--                <i class="far fa-stop-circle"></i>-->
+<!--                Stop Scheduler-->
+<!--            </button>-->
+        </div>
         <div class="navbar-header">
             <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
                     aria-expanded="false" aria-controls="navbar">
@@ -24,48 +51,12 @@
                 <span class="icon-bar"></span>
             </button>
         </div>
+
         <div id="navbar" class="collapse navbar-collapse">
-            <div class="col-md-4">
-                <span>Scheduler status: </span><span class="{{ scheduler.state }}">{{ scheduler.state }}</span>
-            </div>
-            <div class="clearfix col-md-4">
-                <ul class="nav navbar-nav">
-                    <li class="selected-section"><a href="/">OVERVIEW</a></li>
-                    <li><a href="/">EXECUTORS</a></li>
-                    <li><a href="/">JOB STORES</a></li>
-                </ul>
-            </div>
-            <div class="col-md-4 scheduler-controls" ng-if="capabilities.can_control_scheduler">
-                <button class="btn control-btn pull-right"
-                        ng-if="scheduler.state === 'paused'"
-                        ng-click="resume_scheduler()">
-                    <i class="far fa-play-circle"></i>
-                    Resume Scheduler
-                </button>
-
-                <button class="btn control-btn pull-right"
-                        ng-if="scheduler.state === 'stopped'"
-                        ng-click="start_scheduler()">
-                    <i class="far fa-play-circle"></i>
-                    Start Scheduler
-                </button>
-
-                <button class="btn control-btn control-neutral pull-right"
-                        ng-if="capabilities.pause_scheduler && scheduler.state === 'running'"
-                        ng-click="pause_scheduler()">
-                    <i class="far fa-pause-circle"></i>
-                    Pause Scheduler
-                </button>
-
-                <button class="btn control-btn control-negative pull-right"
-                        ng-if="capabilities.stop_scheduler && scheduler.state !== 'stopped'"
-                        ng-click="stop_scheduler()">
-                    <i class="far fa-stop-circle"></i>
-                    Stop Scheduler
-                </button>
-            </div>
+            <ul class="nav navbar-nav">
+                <li ng-class="{ 'selected-section': is_active('/') }"><a href="/">OVERVIEW</a></li>
+            </ul>
         </div>
-        <!--/.nav-collapse -->
     </div>
 </nav>
 

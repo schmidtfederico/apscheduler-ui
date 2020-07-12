@@ -1,8 +1,13 @@
 import logging
 import threading
+from datetime import datetime
+
 import flask
 import flask_socketio
 from apscheduler.jobstores.base import JobLookupError
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
+from flask import Response
 
 from apschedulerui.watcher import SchedulerWatcher, SchedulerEventsListener
 
@@ -44,6 +49,7 @@ class SchedulerUI(SchedulerEventsListener):
         self._init_endpoints()
 
         self._web_server_thread = None
+        self._scheduler_lock = threading.Lock()
 
     def _init_endpoints(self):
         if self.capabilities.get('pause_scheduler', False):
@@ -80,51 +86,61 @@ class SchedulerUI(SchedulerEventsListener):
     def index(self, path):
         return self._web_server.send_static_file('index.html')
 
+    def _exec_scheduler_command(self, func, *args, **kwargs):
+        if self._scheduler_lock.acquire(timeout=1):
+            try:
+                func(*args, **kwargs)
+                return 'ok'
+            except JobLookupError:
+                flask.abort(404, description="Job not found")
+            finally:
+                self._scheduler_lock.release()
+        else:
+            flask.abort(408, description="Failed to acquire scheduler lock to perform operation")
+
     def pause_scheduler(self):
-        # TODO: acquire lock!
-        self.scheduler.pause()
-        return 'ok'
+        return self._exec_scheduler_command(self.scheduler.pause)
 
     def resume_scheduler(self):
-        # TODO: acquire lock!
-        self.scheduler.resume()
-        return 'ok'
+        return self._exec_scheduler_command(self.scheduler.resume)
 
     def stop_scheduler(self):
-        # TODO: acquire lock!
-        self.scheduler.shutdown(wait=False)
-        return 'ok'
+        return self._exec_scheduler_command(self.scheduler.shutdown, wait=False)
 
     def start_scheduler(self):
-        # TODO: acquire lock!
-        self.scheduler.start()
-        return 'ok'
+        return self._exec_scheduler_command(self.scheduler.start)
 
     def pause_job(self, job_id):
-        # TODO: acquire lock!
-        try:
-            self.scheduler.pause_job(job_id)
-            return 'ok'
-        except JobLookupError:
-            flask.abort(404, description="Job not found (id: %s)" % job_id)
+        return self._exec_scheduler_command(self.scheduler.pause_job, job_id)
 
     def resume_job(self, job_id):
-        # TODO: acquire lock!
-        self.scheduler.resume_job(job_id)
-        return 'ok'
+        return self._exec_scheduler_command(self.scheduler.resume_job, job_id)
 
-    def run_job(self, job_id):
+    def run_job(self, job_id, next_run_time=None):
         logging.info('Running job %s' % job_id)
-        # TODO: implement me!
-        return 'ok'
+        if not job_id:
+            return Response(status=404)
+
+        if not next_run_time:
+            next_run_time = datetime.now()
+
+        def _run_job():
+            job = self.scheduler.get_job(job_id)
+
+            if not job:
+                flask.abort(404, description='Job not found (id = %s)' % job_id)
+
+            # If a job is periodic (has an interval trigger) it should be triggered by modifying the trigger it already
+            # has. Otherwise, it can be rescheduled to be ran now.
+            if isinstance(job.trigger, IntervalTrigger) or isinstance(job.trigger, CronTrigger):
+                self.scheduler.modify_job(job_id, next_run_time=next_run_time)
+            else:
+                job.reschedule(trigger='date', run_date=next_run_time)
+
+        return self._exec_scheduler_command(_run_job)
 
     def remove_job(self, job_id):
-        # TODO: acquire lock!
-        try:
-            self.scheduler.remove_job(job_id)
-            return 'ok'
-        except JobLookupError:
-            flask.abort(404, description="Job not found (id: %s)" % job_id)
+        return self._exec_scheduler_command(self.scheduler.remove_job, job_id)
 
     def client_connected(self):
         logging.info('Client connected')
