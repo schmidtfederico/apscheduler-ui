@@ -110,4 +110,4 @@ ENV/
 # mypy
 .mypy_cache/
 
-*.json
+package-lock.json

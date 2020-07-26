@@ -1,0 +1,35 @@
+{
+  "name": "apschedulerui",
+  "version": "0.0.1",
+  "description": "",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@fortawesome/fontawesome-free": "^5.13.1",
+    "css-loader": "^3.6.0",
+    "file-loader": "^6.0.0",
+    "html-loader": "^1.1.0",
+    "html-webpack-plugin": "^4.3.0",
+    "less-loader": "^6.2.0",
+    "ng-cache-loader": "0.0.26",
+    "style-loader": "^1.2.1",
+    "webpack": "^4.43.0",
+    "webpack-cli": "^3.3.12"
+  },
+  "dependencies": {
+    "angular": "^1.4.3",
+    "angular-route": "^1.4.3",
+    "angular-socket-io": "^0.7.0",
+    "angular-ui-bootstrap": "^0.13.3",
+    "bootstrap": "^3.3.5",
+    "jquery": "^3.5.1",
+    "plotly.js-basic-dist": "^1.54.1",
+    "socket.io-client": "^2.3.0"
+  }
+}

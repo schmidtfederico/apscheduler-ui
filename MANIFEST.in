@@ -2,5 +2,8 @@ include pyproject.toml
 include *.md
 include LICENSE.txt
 include .coveragerc
-recursive-include apschedulerui *.html
-recursive-include apschedulerui *.js
+include frontend/package.json
+include frontend/webpack.config.js
+recursive-include frontend/src *.html
+recursive-include frontend/src *.js
+recursive-include frontend/src *.less
