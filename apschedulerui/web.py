@@ -14,7 +14,7 @@ from apschedulerui.watcher import SchedulerWatcher, SchedulerEventsListener
 
 class SchedulerUI(SchedulerEventsListener):
 
-    def __init__(self, scheduler, capabilities=None):
+    def __init__(self, scheduler, capabilities=None, operation_timeout=1):
         """
 
         Args:
@@ -32,8 +32,19 @@ class SchedulerUI(SchedulerEventsListener):
             'run_job': False,
         }
 
-        if isinstance(capabilities, dict):
-            self.capabilities.update(capabilities)
+        if not (isinstance(operation_timeout, int) or isinstance(operation_timeout, float)):
+            raise TypeError('operation_timeout should be either an int or a float')
+
+        if operation_timeout <= 0:
+            raise ValueError('operation_timeout should be a positive number')
+
+        self.operation_timeout = operation_timeout
+
+        if capabilities is not None:
+            if isinstance(capabilities, dict):
+                self.capabilities.update(capabilities)
+            else:
+                raise TypeError('capabilities should be a dict of str -> bool pairs')
 
         self._scheduler_listener = SchedulerWatcher(scheduler)
 
@@ -87,7 +98,7 @@ class SchedulerUI(SchedulerEventsListener):
         return self._web_server.send_static_file('index.html')
 
     def _exec_scheduler_command(self, func, *args, **kwargs):
-        if self._scheduler_lock.acquire(timeout=1):
+        if self._scheduler_lock.acquire(timeout=self.operation_timeout):
             try:
                 func(*args, **kwargs)
                 return 'ok'
@@ -117,7 +128,7 @@ class SchedulerUI(SchedulerEventsListener):
         return self._exec_scheduler_command(self.scheduler.resume_job, job_id)
 
     def run_job(self, job_id, next_run_time=None):
-        logging.info('Running job %s' % job_id)
+        logging.getLogger('apschedulerui').info('Running job %s' % job_id)
         if not job_id:
             return Response(status=404)
 
@@ -128,7 +139,7 @@ class SchedulerUI(SchedulerEventsListener):
             job = self.scheduler.get_job(job_id)
 
             if not job:
-                flask.abort(404, description='Job not found (id = %s)' % job_id)
+                raise JobLookupError(job_id)
 
             # If a job is periodic (has an interval trigger) it should be triggered by modifying the trigger it already
             # has. Otherwise, it can be rescheduled to be ran now.
@@ -143,7 +154,7 @@ class SchedulerUI(SchedulerEventsListener):
         return self._exec_scheduler_command(self.scheduler.remove_job, job_id)
 
     def client_connected(self):
-        logging.info('Client connected')
+        logging.getLogger('apschedulerui').debug('Client connected')
         flask_socketio.emit('init_jobs', self._scheduler_listener.scheduler_summary())
         flask_socketio.emit('init_capabilities', self.capabilities)
 
@@ -152,6 +163,12 @@ class SchedulerUI(SchedulerEventsListener):
 
     def scheduler_event(self, event):
         self._socket_io.emit('scheduler_event', event)
+
+    def jobstore_event(self, event):
+        self._socket_io.emit('jobstore_event', event)
+
+    def executor_event(self, event):
+        self._socket_io.emit('executor_event', event)
 
     def start(self, daemon=True, **kwargs):
         self._scheduler_listener.add_listener(self)

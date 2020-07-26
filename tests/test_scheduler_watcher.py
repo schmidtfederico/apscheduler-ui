@@ -1,9 +1,11 @@
 import time
 import unittest
+from unittest.mock import patch
 from datetime import timedelta, datetime
 
 from apscheduler.events import EVENT_ALL
 from apscheduler.executors.pool import ThreadPoolExecutor
+from apscheduler.job import Job
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -56,7 +58,7 @@ class TestSchedulerListener(unittest.TestCase):
         self.assertEqual(1, len(watcher.jobs), 'Watcher should inspect all jobs in scheduler on init')
         self.assertIn('test_job', watcher.jobs, 'Watcher should index jobs by id')
 
-    def test_job_properties(self):
+    def test_job_properties_on_add(self):
         watcher = SchedulerWatcher(self.scheduler)
 
         self.scheduler.add_job(
@@ -189,11 +191,148 @@ class TestSchedulerListener(unittest.TestCase):
         self.assertEqual(3, len(failing_job_events))
         self.assertEqual('job_error', failing_job_events[2]['event_name'])
 
-    def test_removed_jobs_are_flagged(self):
-        pass
+    def test_scheduler_summary(self):
+        watcher = SchedulerWatcher(self.scheduler)
+
+        summary = watcher.scheduler_summary()
+
+        self.assertEqual(sorted(['scheduler', 'jobs', 'executors', 'jobstores']), sorted(summary.keys()))
+
+        self.assertEqual('running', summary['scheduler']['state'], 'scheduler_summary should have the scheduler status')
+        self.assertEqual(2, len(summary['executors']), 'scheduler_summaru should have the two added executors')
+        self.assertEqual(2, len(summary['jobstores']), 'scheduler_summary should have the two executors')
+        self.assertEqual(0, len(summary['jobs']), 'scheduler_summary should have no jobs')
+
+        self.scheduler.add_job(lambda: 0, id='job_1')
+
+        summary = watcher.scheduler_summary()
+
+        self.assertIn('job_1', summary['jobs'], 'scheduler_summary should have the added jobs in it')
+
+        self.scheduler.remove_job('job_1')
+
+        summary = watcher.scheduler_summary()
+        self.assertIn('job_1', summary['jobs'], 'scheduler_summary should have all jobs in it, even if job was removed')
+
+    def test_removed_jobs_are_only_flagged_as_removed(self):
+        self.scheduler.add_job(lambda: 0, id='a_job')
+
+        watcher = SchedulerWatcher(self.scheduler)
+
+        self.assertIn('a_job', watcher.jobs)
+        self.assertIsNone(watcher.jobs['a_job']['removed_time'])
+
+        self.scheduler.remove_job('a_job')
+
+        self.assertIn('a_job', watcher.jobs, 'removed jobs should be still tracked in the scheduler watcher')
+        self.assertIsNotNone(watcher.jobs['a_job']['removed_time'], 'removed_time should be set')
 
     def test_modified_job_properties_are_tracked(self):
-        pass
+        self.scheduler.add_job(
+            lambda x, y: x + y,
+            id='a_job',
+            name='A job',
+            jobstore='in_memory',
+            trigger='interval',
+            minutes=60,
+            args=(1,),
+            kwargs={'y': 2}
+        )
 
-    def test_removing_a_jobstore_removes_all_jobs(self):
-        pass
+        watcher = SchedulerWatcher(self.scheduler)
+
+        self.assertEqual(watcher.jobs['a_job']['modified_time'], watcher.jobs['a_job']['added_time'])
+
+        next_run_time = watcher.jobs['a_job']['properties']['next_run_time'][0]
+
+        self.scheduler.modify_job('a_job', name='A modified job', next_run_time=datetime.now() + timedelta(days=1))
+
+        self.assertGreater(watcher.jobs['a_job']['modified_time'], watcher.jobs['a_job']['added_time'])
+        self.assertEqual('A modified job', watcher.jobs['a_job']['properties']['name'])
+        self.assertGreater(watcher.jobs['a_job']['properties']['next_run_time'][0], next_run_time)
+
+    @patch('apschedulerui.watcher.SchedulerWatcher.notify_jobstore_event')
+    def test_removing_a_jobstore_removes_all_jobs(self, mock_notify_jobstore_event):
+        watcher = SchedulerWatcher(self.scheduler)
+
+        self.scheduler.add_job(lambda: 0, id='job_1', jobstore='in_memory', trigger='interval', minutes=60)
+        self.scheduler.add_job(lambda: 0, id='job_2', jobstore='in_memory', trigger='interval', minutes=60)
+
+        self.assertEqual(2, len(watcher.jobs))
+        self.assertIsNone(watcher.jobs['job_1']['removed_time'], 'job_1 removed time should be None')
+        self.assertEqual('in_memory', watcher.jobs['job_1']['properties']['jobstore'])
+
+        self.scheduler.remove_jobstore('in_memory')
+
+        mock_notify_jobstore_event.assert_called()
+
+        self.assertEqual(2, len(watcher.jobs), 'The amount of jobs after removing a jobstore should not change')
+        self.assertIsNotNone(watcher.jobs['job_1']['removed_time'], 'job_1 removed time should be set')
+        self.assertIsNotNone(watcher.jobs['job_2']['removed_time'], 'job_2 removed time should be set')
+
+    @patch('apschedulerui.watcher.SchedulerWatcher._repr_job')
+    @patch('apschedulerui.watcher.SchedulerWatcher.notify_job_event')
+    @patch('apschedulerui.watcher.SchedulerWatcher.notify_jobstore_event')
+    def test_adding_a_jobstore_adds_all_jobs_in_it(self, mock_notify_jobstore_event, mock_notify_job_event, _):
+        watcher = SchedulerWatcher(self.scheduler)
+
+        jobstore = MemoryJobStore()
+
+        jobstore.add_job(Job(scheduler=self.scheduler, id='job_1', next_run_time=datetime.now() + timedelta(days=1)))
+        jobstore.add_job(Job(scheduler=self.scheduler, id='job_2', next_run_time=datetime.now() + timedelta(days=2)))
+
+        self.assertEqual(0, len(watcher.jobs))
+
+        self.scheduler.add_jobstore(jobstore, alias='in_memory_2')
+
+        self.assertIn('in_memory_2', watcher.jobstores, 'Watcher should have the new jobstore tracked')
+        self.assertEqual(2, len(watcher.jobs), 'Watcher should add all jobs in the newly added jobstore')
+        self.assertTrue(all([job_id in watcher.jobs for job_id in ['job_1', 'job_2']]))
+        self.assertEqual(2, mock_notify_job_event.call_count)
+        mock_notify_jobstore_event.assert_called_once()
+
+    @patch('apschedulerui.watcher.SchedulerWatcher.notify_job_event')
+    def test_removing_all_jobs_flags_all_as_removed(self, mock_notify_job_event):
+        watcher = SchedulerWatcher(self.scheduler)
+
+        self.scheduler.add_job(lambda: 0, id='job_1', jobstore='default', trigger='interval', minutes=60)
+        self.scheduler.add_job(lambda: 0, id='job_2', jobstore='in_memory', trigger='interval', minutes=60)
+
+        self.assertEqual(2, len(watcher.jobs))
+        self.assertEqual(2, mock_notify_job_event.call_count)
+
+        mock_notify_job_event.reset_mock()
+
+        self.scheduler.remove_all_jobs()
+
+        self.assertEqual(2, len(watcher.jobs), 'job count should not change after removing all jobs')
+        self.assertEqual(2, mock_notify_job_event.call_count)
+
+    @patch('apschedulerui.watcher.SchedulerWatcher.notify_executor_event')
+    def test_adding_and_removing_executors(self, mock_notify_executor_event):
+        watcher = SchedulerWatcher(self.scheduler)
+
+        self.scheduler.add_executor(ThreadPoolExecutor(), alias='new_executor')
+
+        self.assertIn('new_executor', watcher.executors)
+        mock_notify_executor_event.assert_called()
+
+        mock_notify_executor_event.reset_mock()
+        self.scheduler.remove_executor('new_executor')
+
+        self.assertNotIn('new_executor', watcher.executors)
+        mock_notify_executor_event.assert_called()
+
+    def test_job_event_history_is_limited(self):
+        watcher = SchedulerWatcher(self.scheduler, max_events_per_job=4)
+
+        self.scheduler.add_job(lambda: 0, trigger='interval', seconds=0.01, id='recurrent_job')
+
+        time.sleep(0.1)
+
+        # recurrent_job should have been executed ~10 times now, generating ~20 events (submission + execution).
+        self.assertEqual(
+            watcher.max_events_per_job,
+            len(watcher.jobs['recurrent_job']['events']),
+            'job event history should be limited'
+        )
