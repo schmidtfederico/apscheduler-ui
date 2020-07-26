@@ -52,14 +52,21 @@ class SchedulerWatcher:
         apscheduler.events.EVENT_JOB_MAX_INSTANCES: 'job_max_instances'
     }
 
-    def __init__(self, scheduler, event_log_size=100):
+    def __init__(self, scheduler, max_events_per_job=100):
         """
+        Inspects the scheduler, registers itself as a scheduler event listener and keeps track of all changes to the
+        scheduler and its jobs.
+
         Args:
             scheduler (apscheduler.schedulers.base.BaseScheduler):
+                A reference to the scheduler we'd like to watch.
+
+            max_events_per_job (int):
+                The maximum amount of events we'll keep in-memory for each job to send to the clients when they connect.
         """
         self.scheduler = scheduler
         self.listeners = []
-        self.event_log_size = event_log_size
+        self.max_events_per_job = max_events_per_job
 
         self.jobstores = {}
         self.executors = {}
@@ -427,9 +434,9 @@ class SchedulerWatcher:
 
         self.jobs[job_id]['events'].append(e)
 
-        if len(self.jobs[job_id]['events']) > self.event_log_size:
+        if len(self.jobs[job_id]['events']) > self.max_events_per_job:
             # Limit job event log size.
-            self.jobs[job_id]['events'] = self.jobs[job_id]['events'][-self.event_log_size:]
+            self.jobs[job_id]['events'] = self.jobs[job_id]['events'][-self.max_events_per_job:]
 
     def _repr_ts(self, ts):
         """

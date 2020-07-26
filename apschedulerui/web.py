@@ -37,7 +37,7 @@ class SchedulerUI(SchedulerEventsListener):
 
         self._scheduler_listener = SchedulerWatcher(scheduler)
 
-        self._web_server = flask.Flask(__name__ )
+        self._web_server = flask.Flask(__name__)
         self._socket_io = None
 
         try:
@@ -161,4 +161,3 @@ class SchedulerUI(SchedulerEventsListener):
 
     def _start(self, host='0.0.0.0', port=12673):
         self._socket_io.run(self._web_server, host=host, port=port)
-
