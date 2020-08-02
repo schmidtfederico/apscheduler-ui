@@ -13,20 +13,24 @@ dependencies = [
 ]
 
 
-class SdistCommand(sdist):
+class SdistWithWebpack(sdist):
+    """
+    We need to extend the sdist command to run webpack in production mode before building the package for distribution.
+    """
 
     def run(self):
         import os
         import subprocess
 
-        if not os.path.exists('frontend/node_build_env'):
-            subprocess.check_call(['nodeenv', 'node_build_env'], cwd='frontend')
+        if 'CI' not in os.environ:
+            if not os.path.exists('frontend/node_build_env'):
+                subprocess.check_call(['nodeenv', 'node_build_env'], cwd='frontend')
 
-        subprocess.check_call(
-            ['./node_build_env/bin/activate && npm install && npx webpack -p'],
-            shell=True,
-            cwd='frontend'
-        )
+            subprocess.check_call(
+                ['./node_build_env/bin/activate && npm install && npx webpack -p'],
+                shell=True,
+                cwd='frontend'
+            )
 
         sdist.run(self)
 
@@ -59,5 +63,6 @@ setup(
         'testing': ['requests'],
         'testing:python_version == "3.5"': ['mock']
     },
-    cmdclass={'sdist': SdistCommand}
+    cmdclass={'sdist': SdistWithWebpack},
+    include_package_data=True
 )
