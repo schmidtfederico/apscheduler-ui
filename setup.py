@@ -36,6 +36,7 @@ setup(
     ],
     python_requires='>=3.5, <4',
     extras_require={
+        'testing': ['requests'],
         'testing:python_version == "3.5"': ['mock']
     }
 )

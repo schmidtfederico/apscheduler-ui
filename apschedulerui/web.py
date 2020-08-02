@@ -170,11 +170,11 @@ class SchedulerUI(SchedulerEventsListener):
     def executor_event(self, event):
         self._socket_io.emit('executor_event', event)
 
-    def start(self, daemon=True, **kwargs):
+    def start(self, host='0.0.0.0', port=5000, daemon=True):
         self._scheduler_listener.add_listener(self)
-        self._web_server_thread = threading.Thread(target=self._start, name='apscheduler-ui', kwargs=kwargs)
+        self._web_server_thread = threading.Thread(target=self._start, name='apscheduler-ui', args=(host, port))
         self._web_server_thread.daemon = daemon
         self._web_server_thread.start()
 
-    def _start(self, host='0.0.0.0', port=12673):
+    def _start(self, host, port):
         self._socket_io.run(self._web_server, host=host, port=port)

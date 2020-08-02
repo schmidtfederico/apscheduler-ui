@@ -175,8 +175,12 @@ class TestSchedulerListener(unittest.TestCase):
     def test_job_failure_monitoring(self):
         watcher = SchedulerWatcher(self.scheduler)
 
+        def fail():
+            time.sleep(0.02)
+            return 0 / 0
+
         self.scheduler.add_job(
-            lambda: 0 / 0,
+            fail,
             id='failing_job',
             name='Failing job',
             jobstore='in_memory',
