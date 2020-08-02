@@ -1,6 +1,11 @@
 import time
 import unittest
-from unittest.mock import patch
+
+try:
+    from mock import patch
+except ImportError:
+    from unittest.mock import patch
+
 from datetime import timedelta, datetime
 
 from apscheduler.events import EVENT_ALL

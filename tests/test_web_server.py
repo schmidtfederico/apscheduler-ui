@@ -1,7 +1,11 @@
 import time
 import unittest
 from datetime import datetime, timedelta
-from unittest.mock import patch
+
+try:
+    from mock import patch
+except ImportError:
+    from unittest.mock import patch
 
 from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.jobstores.memory import MemoryJobStore
