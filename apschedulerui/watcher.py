@@ -12,11 +12,40 @@ class SchedulerEventsListener:
 
     @abstractmethod
     def scheduler_event(self, event):
-        pass
+        """
+        Event triggered whenever the scheduler status changes.
+
+        Args:
+            event (dict):
+        """
 
     @abstractmethod
     def job_event(self, event):
-        pass
+        """
+        Event triggered when a job is added, modified, removed, when it's submitted for execution or when executing it
+        finishes.
+
+        Args:
+            event (dict):
+        """
+
+    @abstractmethod
+    def jobstore_event(self, event):
+        """
+        Triggered any time an job store is added or removed from the scheduler.
+
+        Args:
+            event (dict):
+        """
+
+    @abstractmethod
+    def executor_event(self, event):
+        """
+        Triggered any time an executor is added or removed from the scheduler.
+
+        Args:
+            event (dict):
+        """
 
 
 class SchedulerWatcher:
@@ -182,7 +211,7 @@ class SchedulerWatcher:
         with self.write_lock:
             self.executors[event.alias] = self._repr_executor(executor) if executor else None
 
-        # TODO: notify executor added.
+        self.notify_executor_event(event_name, event_ts, event.alias)
 
     def executor_removed(self, event, event_name, event_ts):
         """
@@ -193,17 +222,16 @@ class SchedulerWatcher:
             if event.alias in self.executors:
                 del self.executors[event.alias]
 
-        # TODO: notify executor removed.
+        self.notify_executor_event(event_name, event_ts, event.alias)
 
     def jobstore_added(self, event, event_name, event_ts):
         """
         Args:
             event (apscheduler.events.SchedulerEvent):
         """
-        # TODO: list all jobs in jobstore and add them.
         self._jobstore_added(event.alias, event_ts)
 
-        # TODO: notify jobstore added.
+        self.notify_jobstore_event(event_name, event_ts, event.alias)
 
     def jobstore_removed(self, event, event_name, event_ts):
         """
@@ -212,13 +240,13 @@ class SchedulerWatcher:
         """
         with self.write_lock:
             for job_id in self.jobs.keys():
-                if self.jobs[job_id]['jobstore'] == event.alias:
+                if self.jobs[job_id]['properties']['jobstore'] == event.alias:
                     self._job_removed(job_id, event_ts)
 
             if event.alias in self.jobstores:
                 del self.jobstores[event.alias]
 
-        # TODO: notify jobstore removed.
+        self.notify_jobstore_event(event_name, event_ts, event.alias)
 
     def all_jobs_removed(self, event, event_name, event_ts):
         """
@@ -323,19 +351,37 @@ class SchedulerWatcher:
         for listener in self.listeners:
             listener.job_event(event)
 
+    def notify_executor_event(self, event_name, event_ts, executor_name):
+        for listener in self.listeners:
+            listener.executor_event({
+                'event_name': event_name,
+                'event_ts': event_ts,
+                'executor_name': executor_name
+            })
+
+    def notify_jobstore_event(self, event_name, event_ts, jobstore_name):
+        for listener in self.listeners:
+            listener.jobstore_event({
+                'event_name': event_name,
+                'event_ts': event_ts,
+                'jobstore_name': jobstore_name
+            })
+
     def _job_added(self, job_id, jobstore, added_ts, job=None):
         with self.write_lock:
-            if job_id not in self.jobs:
-                self.jobs[job_id] = {
-                    'added_time': added_ts,
-                    'modified_time': added_ts,
-                    'removed_time': None,
-                    'properties': self._repr_job(
-                        self.scheduler.get_job(job_id, jobstore) if job is None else job,
-                        jobstore=jobstore
-                    ),
-                    'events': []
-                }
+            if job_id in self.jobs:
+                return
+
+            self.jobs[job_id] = {
+                'added_time': added_ts,
+                'modified_time': added_ts,
+                'removed_time': None,
+                'properties': self._repr_job(
+                    self.scheduler.get_job(job_id, jobstore) if job is None else job,
+                    jobstore=jobstore
+                ),
+                'events': []
+            }
 
             event = {
                 'job_id': job_id,
