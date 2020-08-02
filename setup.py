@@ -1,4 +1,5 @@
 from setuptools import setup, find_packages
+from setuptools.command.sdist import sdist
 
 VERSION = '0.0.1'
 
@@ -10,6 +11,26 @@ dependencies = [
     'flask >= 1.0.0',
     'flask_socketio >= 4.0.0'
 ]
+
+
+class SdistCommand(sdist):
+
+    def run(self):
+        import os
+        import subprocess
+
+        print('Building the frontend dist using Webpack')
+
+        if not os.path.exists('frontend/node_build_env'):
+            subprocess.check_call(['nodeenv', 'node_build_env'], cwd='frontend')
+
+        subprocess.check_call(
+            ['./node_build_env/bin/activate && npm install && npx webpack -p'],
+            shell=True,
+            cwd='frontend'
+        )
+        sdist.run(self)
+
 
 setup(
     name='apschedulerui',
@@ -38,5 +59,6 @@ setup(
     extras_require={
         'testing': ['requests'],
         'testing:python_version == "3.5"': ['mock']
-    }
+    },
+    cmdclass={'sdist': SdistCommand}
 )
