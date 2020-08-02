@@ -166,6 +166,9 @@ class Job {
     contains(search_term) {
         let job_status = '';
 
+        // Make sure comparisons are case-insensitive.
+        search_term = search_term.toLowerCase();
+
         if(this.stats.current_status !== null) {
             job_status = this.stats.current_status.toLowerCase();
         }
