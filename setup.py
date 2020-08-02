@@ -19,8 +19,6 @@ class SdistCommand(sdist):
         import os
         import subprocess
 
-        print('Building the frontend dist using Webpack')
-
         if not os.path.exists('frontend/node_build_env'):
             subprocess.check_call(['nodeenv', 'node_build_env'], cwd='frontend')
 
@@ -29,6 +27,7 @@ class SdistCommand(sdist):
             shell=True,
             cwd='frontend'
         )
+
         sdist.run(self)
 
 
