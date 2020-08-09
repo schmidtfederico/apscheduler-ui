@@ -80,7 +80,7 @@ class TestWebServer(unittest.TestCase):
 
     @patch('flask.Flask.send_static_file')
     def test_index_retrieval(self, mock_send_static_file):
-        SchedulerUI(self.scheduler).index('/any_path')
+        SchedulerUI(self.scheduler)._index('/any_path')
 
         mock_send_static_file.assert_called_with('index.html')
 
@@ -91,18 +91,18 @@ class TestWebServer(unittest.TestCase):
 
         with ui._scheduler_lock:
             # If we acquire the lock, every command we send to the web server should be aborted on lock acquire timeout.
-            ui.pause_scheduler()
+            ui._pause_scheduler()
 
             mock_abort.assert_called()
             mock_pause.assert_not_called()
 
-            ui.resume_scheduler()
-            ui.stop_scheduler()
-            ui.start_scheduler()
-            ui.pause_job('a_job')
-            ui.resume_job('a_job')
-            ui.run_job('a_job')
-            ui.remove_job('a_job')
+            ui._resume_scheduler()
+            ui._stop_scheduler()
+            ui._start_scheduler()
+            ui._pause_job('a_job')
+            ui._resume_job('a_job')
+            ui._run_job('a_job')
+            ui._remove_job('a_job')
 
             self.assertEqual(8, mock_abort.call_count)
 
@@ -113,16 +113,16 @@ class TestWebServer(unittest.TestCase):
     def test_scheduler_requests(self, mock_start, mock_shutdown, mock_resume, mock_pause):
         ui = SchedulerUI(self.scheduler)
 
-        ui.pause_scheduler()
+        ui._pause_scheduler()
         mock_pause.assert_called()
 
-        ui.resume_scheduler()
+        ui._resume_scheduler()
         mock_resume.assert_called()
 
-        ui.stop_scheduler()
+        ui._stop_scheduler()
         mock_shutdown.assert_called()
 
-        ui.start_scheduler()
+        ui._start_scheduler()
         mock_start.assert_called()
 
     @patch('apscheduler.schedulers.background.BackgroundScheduler.remove_job')
@@ -131,28 +131,28 @@ class TestWebServer(unittest.TestCase):
     def test_job_requests(self, mock_pause_job, mock_resume_job, mock_remove_job):
         ui = SchedulerUI(self.scheduler)
 
-        ui.pause_job('a_job')
+        ui._pause_job('a_job')
         mock_pause_job.assert_called()
 
-        ui.resume_job('a_job')
+        ui._resume_job('a_job')
         mock_resume_job.assert_called()
 
-        ui.remove_job('a_job')
+        ui._remove_job('a_job')
         mock_remove_job.assert_called()
 
     @patch('flask.abort')
     def test_missing_jobs_requests_are_aborted(self, mock_abort):
         ui = SchedulerUI(self.scheduler)
 
-        ui.pause_job('non_existing_job')
-        ui.resume_job('non_existing_job')
-        ui.run_job('non_existing_job')
+        ui._pause_job('non_existing_job')
+        ui._resume_job('non_existing_job')
+        ui._run_job('non_existing_job')
 
         self.assertEqual(3, mock_abort.call_count)
 
         mock_abort.reset_mock()
 
-        response = ui.run_job(job_id=None)
+        response = ui._run_job(job_id=None)
         self.assertEqual(response.status_code, 404, 'Requests with missing job_id should fail')
 
     @patch('flask_socketio.SocketIO.run')

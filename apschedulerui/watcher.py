@@ -11,7 +11,7 @@ from multiprocessing import RLock
 class SchedulerEventsListener:
 
     @abstractmethod
-    def scheduler_event(self, event):
+    def _scheduler_event(self, event):
         """
         Event triggered whenever the scheduler status changes.
 
@@ -20,7 +20,7 @@ class SchedulerEventsListener:
         """
 
     @abstractmethod
-    def job_event(self, event):
+    def _job_event(self, event):
         """
         Event triggered when a job is added, modified, removed, when it's submitted for execution or when executing it
         finishes.
@@ -30,7 +30,7 @@ class SchedulerEventsListener:
         """
 
     @abstractmethod
-    def jobstore_event(self, event):
+    def _jobstore_event(self, event):
         """
         Triggered any time an job store is added or removed from the scheduler.
 
@@ -39,7 +39,7 @@ class SchedulerEventsListener:
         """
 
     @abstractmethod
-    def executor_event(self, event):
+    def _executor_event(self, event):
         """
         Triggered any time an executor is added or removed from the scheduler.
 
@@ -332,7 +332,7 @@ class SchedulerWatcher:
 
     def notify_scheduler_event(self, event_name, event_ts):
         for listener in self.listeners:
-            listener.scheduler_event({
+            listener._scheduler_event({
                 'event_name': event_name,
                 'event_ts': event_ts
             })
@@ -349,11 +349,11 @@ class SchedulerWatcher:
                 next_run_time = job.trigger.get_next_fire_time(next_run_time, next_run_time)
 
         for listener in self.listeners:
-            listener.job_event(event)
+            listener._job_event(event)
 
     def notify_executor_event(self, event_name, event_ts, executor_name):
         for listener in self.listeners:
-            listener.executor_event({
+            listener._executor_event({
                 'event_name': event_name,
                 'event_ts': event_ts,
                 'executor_name': executor_name
@@ -361,7 +361,7 @@ class SchedulerWatcher:
 
     def notify_jobstore_event(self, event_name, event_ts, jobstore_name):
         for listener in self.listeners:
-            listener.jobstore_event({
+            listener._jobstore_event({
                 'event_name': event_name,
                 'event_ts': event_ts,
                 'jobstore_name': jobstore_name
